@@ -5,6 +5,7 @@
 	const CERULEANCITY_COOLTRAINER_F
 	const CERULEANCITY_FISHER
 	const CERULEANCITY_YOUNGSTER
+	const CERULEANCITY_MEWTWO
 
 CeruleanCity_MapScripts:
 	def_scene_scripts
@@ -269,6 +270,26 @@ CeruleanLockedDoorText:
 	text "It's locked…"
 	done
 
+CeruleanCityMewtwo:
+	faceplayer
+	opentext
+	writetext CeruleanCityMewtwoText
+	cry MEWTWO
+	pause 15
+	closetext
+	loadwildmon MEWTWO, 70
+	startbattle
+	readvar VAR_BATTLERESULT
+	ifequal DRAW, .Fled
+	disappear CERULEANCITY_MEWTWO
+.Fled:
+	reloadmapafterbattle
+	end
+
+CeruleanCityMewtwoText:
+	text "Mew!"
+	done
+
 CeruleanCity_MapEvents:
 	db 0, 0 ; filler
 
@@ -300,3 +321,4 @@ CeruleanCity_MapEvents:
 	object_event 21, 24, SPRITE_COOLTRAINER_F, SPRITEMOVEDATA_STANDING_LEFT, 0, 0, -1, -1, PAL_NPC_GREEN, OBJECTTYPE_SCRIPT, 0, CeruleanCityCooltrainerFScript, -1
 	object_event 30, 26, SPRITE_FISHER, SPRITEMOVEDATA_WALK_LEFT_RIGHT, 1, 0, -1, -1, PAL_NPC_RED, OBJECTTYPE_SCRIPT, 0, CeruleanCityFisherScript, -1
 	object_event  6, 12, SPRITE_YOUNGSTER, SPRITEMOVEDATA_SPINRANDOM_SLOW, 1, 0, -1, -1, PAL_NPC_RED, OBJECTTYPE_SCRIPT, 0, CeruleanCityYoungsterScript, -1
+	object_event  2, 10, SPRITE_MONSTER, SPRITEMOVEDATA_POKEMON, 0, 0, -1, -1, PAL_NPC_PINK, OBJECTTYPE_SCRIPT, 0, CeruleanCityMewtwo, EVENT_CERULEAN_CITY_MEWTWO

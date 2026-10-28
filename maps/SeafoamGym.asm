@@ -1,6 +1,7 @@
 	object_const_def
 	const SEAFOAMGYM_BLAINE
 	const SEAFOAMGYM_GYM_GUIDE
+	const SEAFOAMGYM_ARTICUNO
 
 SeafoamGym_MapScripts:
 	def_scene_scripts
@@ -155,6 +156,26 @@ SeafoamGymGuideWinText2:
 	line "for a building."
 	done
 
+SeafoamGymArticuno:
+	faceplayer
+	opentext
+	writetext SeafoamGymArticunoText
+	cry ARTICUNO
+	pause 15
+	closetext
+	loadwildmon ARTICUNO, 50
+	startbattle
+	readvar VAR_BATTLERESULT
+	ifequal DRAW, .Fled
+	disappear SEAFOAMGYM_ARTICUNO
+.Fled:
+	reloadmapafterbattle
+	end
+
+SeafoamGymArticunoText:
+	text "Gyaoo!"
+	done
+
 SeafoamGym_MapEvents:
 	db 0, 0 ; filler
 
@@ -168,3 +189,4 @@ SeafoamGym_MapEvents:
 	def_object_events
 	object_event  5,  2, SPRITE_BLAINE, SPRITEMOVEDATA_STANDING_DOWN, 0, 0, -1, -1, PAL_NPC_BROWN, OBJECTTYPE_SCRIPT, 0, SeafoamGymBlaineScript, -1
 	object_event  6,  5, SPRITE_GYM_GUIDE, SPRITEMOVEDATA_STANDING_UP, 0, 0, -1, -1, PAL_NPC_BLUE, OBJECTTYPE_SCRIPT, 0, SeafoamGymGuideScript, EVENT_SEAFOAM_GYM_GYM_GUIDE
+	object_event  3,  4, SPRITE_MOLTRES, SPRITEMOVEDATA_POKEMON, 0, 0, -1, -1, PAL_NPC_BLUE, OBJECTTYPE_SCRIPT, 0, SeafoamGymArticuno, EVENT_SEAFOAM_GYM_ARTICUNO

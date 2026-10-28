@@ -5,6 +5,7 @@
 	const VERMILIONCITY_SUPER_NERD
 	const VERMILIONCITY_BIG_SNORLAX
 	const VERMILIONCITY_POKEFAN_M
+	const VERMILIONCITY_MEW
 
 VermilionCity_MapScripts:
 	def_scene_scripts
@@ -265,6 +266,26 @@ VermilionCityPortSignText:
 	line "ENTRANCE"
 	done
 
+VermilionCityMew:
+	faceplayer
+	opentext
+	writetext VermilionCityMewText
+	cry MEW
+	pause 15
+	closetext
+	loadwildmon MEW, 30
+	startbattle
+	readvar VAR_BATTLERESULT
+	ifequal DRAW, .Fled
+	disappear VERMILIONCITY_MEW
+.Fled:
+	reloadmapafterbattle
+	end
+
+VermilionCityMewText:
+	text "Mew!"
+	done
+
 VermilionCity_MapEvents:
 	db 0, 0 ; filler
 
@@ -299,3 +320,4 @@ VermilionCity_MapEvents:
 	object_event 14, 16, SPRITE_SUPER_NERD, SPRITEMOVEDATA_WANDER, 1, 1, -1, -1, PAL_NPC_GREEN, OBJECTTYPE_SCRIPT, 0, VermilionCitySuperNerdScript, -1
 	object_event 34,  8, SPRITE_BIG_SNORLAX, SPRITEMOVEDATA_BIGDOLLSYM, 0, 0, -1, -1, 0, OBJECTTYPE_SCRIPT, 0, VermilionSnorlax, EVENT_VERMILION_CITY_SNORLAX
 	object_event 31, 12, SPRITE_POKEFAN_M, SPRITEMOVEDATA_STANDING_DOWN, 0, 0, -1, -1, PAL_NPC_RED, OBJECTTYPE_SCRIPT, 0, VermilionGymBadgeGuy, -1
+	object_event 29, 24, SPRITE_FAIRY, SPRITEMOVEDATA_POKEMON, 0, 0, -1, -1, PAL_NPC_PINK, OBJECTTYPE_SCRIPT, 0, VermilionCityMew, EVENT_VERMILION_CITY_MEW

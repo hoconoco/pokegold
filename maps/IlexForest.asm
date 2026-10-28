@@ -13,6 +13,7 @@
 	const ILEXFOREST_BLACK_BELT
 	const ILEXFOREST_ROCKER
 	const ILEXFOREST_POKE_BALL
+	const ILEXFOREST_CELEBI
 
 IlexForest_MapScripts:
 	def_scene_scripts
@@ -656,6 +657,26 @@ Text_IlexForestShrine:
 	cont "protector…"
 	done
 
+IlexForestCelebi:
+	faceplayer
+	opentext
+	writetext IlexForestCelebiText
+	cry CELEBI
+	pause 15
+	closetext
+	loadwildmon CELEBI, 30
+	startbattle
+	readvar VAR_BATTLERESULT
+	ifequal DRAW, .Fled
+	disappear ILEXFOREST_CELEBI
+.Fled:
+	reloadmapafterbattle
+	end
+
+IlexForestCelebiText:
+	text "Biii!"
+	done
+
 IlexForest_MapEvents:
 	db 0, 0 ; filler
 
@@ -688,3 +709,4 @@ IlexForest_MapEvents:
 	object_event  5, 28, SPRITE_BLACK_BELT, SPRITEMOVEDATA_STANDING_RIGHT, 0, 0, -1, -1, 0, OBJECTTYPE_SCRIPT, 0, IlexForestCharcoalMasterScript, EVENT_ILEX_FOREST_CHARCOAL_MASTER
 	object_event 15, 14, SPRITE_ROCKER, SPRITEMOVEDATA_STANDING_RIGHT, 0, 0, -1, -1, 0, OBJECTTYPE_SCRIPT, 0, IlexForestHeadbuttGuyScript, -1
 	object_event 20, 32, SPRITE_POKE_BALL, SPRITEMOVEDATA_STILL, 0, 0, -1, -1, 0, OBJECTTYPE_ITEMBALL, 0, IlexForestRevive, EVENT_ILEX_FOREST_REVIVE
+	object_event  9, 22, SPRITE_FAIRY, SPRITEMOVEDATA_POKEMON, 0, 0, -1, -1, PAL_NPC_GREEN, OBJECTTYPE_SCRIPT, 0, IlexForestCelebi, EVENT_ILEX_FOREST_CELEBI

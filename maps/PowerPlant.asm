@@ -5,6 +5,7 @@
 	const POWERPLANT_OFFICER2
 	const POWERPLANT_GYM_GUIDE3
 	const POWERPLANT_MANAGER
+	const POWERPLANT_ZAPDOS
 
 PowerPlant_MapScripts:
 	def_scene_scripts
@@ -377,6 +378,26 @@ PowerPlantManagerMyBelovedGeneratorText:
 	line "electricity out!"
 	done
 
+PowerPlantZapdos:
+	faceplayer
+	opentext
+	writetext PowerPlantZapdosText
+	cry ZAPDOS
+	pause 15
+	closetext
+	loadwildmon ZAPDOS, 50
+	startbattle
+	readvar VAR_BATTLERESULT
+	ifequal DRAW, .Fled
+	disappear POWERPLANT_ZAPDOS
+.Fled:
+	reloadmapafterbattle
+	end
+
+PowerPlantZapdosText:
+	text "Gyaaas!"
+	done
+
 PowerPlant_MapEvents:
 	db 0, 0 ; filler
 
@@ -398,3 +419,4 @@ PowerPlant_MapEvents:
 	object_event  9,  3, SPRITE_OFFICER, SPRITEMOVEDATA_STANDING_LEFT, 0, 0, -1, -1, PAL_NPC_GREEN, OBJECTTYPE_SCRIPT, 0, PowerPlantOfficer2Script, -1
 	object_event  7,  2, SPRITE_GYM_GUIDE, SPRITEMOVEDATA_WALK_LEFT_RIGHT, 1, 0, -1, -1, PAL_NPC_BLUE, OBJECTTYPE_SCRIPT, 0, PowerPlantGymGuide4Script, -1
 	object_event 14, 10, SPRITE_FISHER, SPRITEMOVEDATA_STANDING_UP, 0, 0, -1, -1, PAL_NPC_RED, OBJECTTYPE_SCRIPT, 0, PowerPlantManager, -1
+	object_event 18,  2, SPRITE_MOLTRES, SPRITEMOVEDATA_POKEMON, 0, 0, -1, -1, PAL_NPC_BROWN, OBJECTTYPE_SCRIPT, 0, PowerPlantZapdos, EVENT_POWER_PLANT_ZAPDOS
