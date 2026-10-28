@@ -29,6 +29,8 @@ body {
 }
 
 #game canvas {
+  width: 100%;  /* mod: letterbox to the window, keep 10:9 */
+  height: 100%;  /* mod */
   object-fit: contain;
   image-rendering: -moz-crisp-edges;
   image-rendering: -webkit-crisp-edges;
@@ -245,5 +247,15 @@ body {
     bottom: 50%;
     transform: translateY(50%);
     opacity: 0.5;
+  }
+}
+
+/* mod: fit the visible viewport; phones in portrait put the game above the pad */
+#game {
+  height: 100dvh;
+}
+@media (pointer: coarse) and (orientation: portrait) {
+  #game {
+    height: calc(100dvh - 220px);
   }
 }
