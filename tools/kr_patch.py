@@ -250,6 +250,78 @@ def wild_maps(data, start):
     return maps
 
 
+MAP_GROUP_POINTERS = (0x25, 0x40ED)  # same place in both ROMs
+LEGEND_MAPS = {  # map: (group, number), as in constants/map_constants.asm
+    "SeafoamGym": (6, 4), "PowerPlant": (7, 10), "VictoryRoad": (3, 82),
+    "CeruleanCity": (7, 17), "VermilionCity": (12, 3), "IlexForest": (3, 44),
+}
+
+
+def map_events(d, group, number):
+    """(file offset of the attributes, script bank, events offset, events size, object count)."""
+    bank, ptrs = MAP_GROUP_POINTERS
+    gp = d[bank * 0x4000 + ptrs - 0x4000 + 2 * (group - 1):][:2]
+    hdr = bank * 0x4000 + (gp[0] | gp[1] << 8) - 0x4000 + 9 * (number - 1)
+    at = d[hdr] * 0x4000 + (d[hdr + 3] | d[hdr + 4] << 8) - 0x4000
+    sbank = d[at + 6]
+    ev = sbank * 0x4000 + (d[at + 9] | d[at + 10] << 8) - 0x4000
+    e = ev + 2
+    e += 1 + 5 * d[e]
+    e += 1 + 8 * d[e]
+    e += 1 + 5 * d[e]
+    objs = d[e]
+    e += 1 + 13 * objs
+    return at, sbank, ev, e - ev, objs
+
+
+def patch_legends(r, en_rom):
+    """Add the six legendary static encounters of the English build to the Korean maps.
+
+    Map headers, script banks and event flag numbers are the same in both ROMs. For each map the
+    Korean event list is copied to free space in the map's script bank with the English legend
+    object (last object_event: position, sprite, palette, flag) appended, and the map attributes
+    point to the new list. The legend script is the English one without its text box (the Korean
+    ROM uses another text encoding): cry, wild battle, and the object disappears unless the
+    player fled."""
+    en = Path(en_rom).read_bytes()
+    # The Korean script engine has one extra command, so commands from opentext ($47 in English)
+    # up are numbered one higher. Checked on the Lugia script, whose English bytes are
+    # 6a 47 4c .. .. 83 f9 00 8a 0f 49 33 18 03 18 09 (readvar $1c / ifequal $06 are unchanged).
+    lugia_kr = r.find("script commands", "6B 48 4D ?? ?? 84 F9 00 8B 0F 4A 33 18 03 18 09")
+    assert lugia_kr // 0x4000 == 0x47, "Lugia script not where expected"
+    for name, (group, number) in LEGEND_MAPS.items():
+        _, en_bank, en_ev, en_size, en_objs = map_events(en, group, number)
+        at, bank, ev, size, objs = map_events(r.d, group, number)
+        assert en_bank == bank and en_objs == objs + 1, f"{name}: maps differ"
+        legend = bytearray(en[en_ev + en_size - 13:en_ev + en_size])
+        script_en = en[bank * 0x4000 + (legend[9] | legend[10] << 8) - 0x4000:][:24]
+        assert script_en[:3] == b"\x6a\x47\x4c" and script_en[5] == 0x83, f"{name}: legend script"
+        species, level = script_en[6], script_en[13]
+        obj = objs + 2  # object_const_def starts at 2
+        r.free.setdefault(bank, bank * 0x4000 + 0x4000 - free_tail(r.d, bank) + 16)
+        script = r.alloc(f"{name}: legend script", bank, lambda org: asm([
+            0x6B,                         # faceplayer
+            0x84, species, 0x00,          # cry
+            0x8B, 0x0F,                   # pause 15
+            0x5D, species, level,         # loadwildmon
+            0x5F,                         # startbattle
+            0x1C, 0x02,                   # readvar VAR_BATTLERESULT
+            0x06, 0x02, ("abs", "fled"),  # ifequal DRAW, .fled
+            0x6E, obj,                    # disappear
+            "fled:", 0x60, 0x91,          # reloadmapafterbattle / end
+        ], org))
+        legend[9:11] = bytes(lo_hi(script))
+        events = bytearray(r.d[ev:ev + size])
+        events[size - 13 * objs - 1] += 1
+        new_ev = r.alloc(f"{name}: events + legend", bank, lambda org: bytes(events + legend))
+        r.put(f"{name}: events pointer", at + 9, r.d[at + 9:at + 11], lo_hi(new_ev))
+
+
+def free_tail(d, bank):
+    blk = d[bank * 0x4000:(bank + 1) * 0x4000]
+    return len(blk) - len(bytes(blk).rstrip(b"\x00"))
+
+
 def fix_global_checksum(d):
     s = (sum(d) - d[0x14E] - d[0x14F]) & 0xFFFF
     d[0x14E], d[0x14F] = s >> 8, s & 0xFF
@@ -269,6 +341,7 @@ def main():
     patch_shiny(r)
     patch_exp(r)
     patch_wild(r, args.en_rom, args.en_sym)
+    patch_legends(r, args.en_rom)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
     text = "\n".join(r.log) + "\n"
