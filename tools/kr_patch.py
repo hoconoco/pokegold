@@ -192,6 +192,64 @@ def patch_exp(r):
     r.put("exp: no even split", off + 5, [0xCD, 0x4E, 0x6F], [])
 
 
+def wild_slots(data, start):
+    """Walk Johto grass/water and Kanto grass/water tables from start.
+    Returns (end offset, offsets of the species bytes mix_wild.py may change)."""
+    off, mixable = start, []
+    for kind in ("grass", "water", "grass", "water"):
+        while data[off] != 0xFF:
+            if kind == "grass":
+                slots = [off + 5 + t * 14 + s * 2 + 1 for t in range(3) for s in range(7)]
+                mixable += [slots[t * 7 + s] for t in range(3) for s in (3, 4, 5)]
+                off += 5 + 42
+            else:
+                mixable.append(off + 3 + 2 * 2 + 1)
+                off += 3 + 6
+        off += 1
+    return off, set(mixable)
+
+
+def patch_wild(r, en_rom, en_sym):
+    """Copy the species that tools/mix_wild.py put into the rarer slots of the English build
+    into the same slots of the Korean tables. Species and map ids are the same in both ROMs and
+    the tables have the same maps in the same order, but the Korean data differs in 33 other bytes
+    (some levels and version species), so only the mixed species bytes are copied and the rest of
+    the Korean data is kept."""
+    en = Path(en_rom).read_bytes()
+    addr = next(int(l.split()[0][3:], 16) for l in open(en_sym, encoding="utf-8")
+                if l.split()[1:] == ["JohtoGrassWildMons"])
+    bank = next(int(l.split()[0][:2], 16) for l in open(en_sym, encoding="utf-8")
+                if l.split()[1:] == ["JohtoGrassWildMons"])
+    en_start = bank * 0x4000 + addr - 0x4000
+    en_end, mixable = wild_slots(en, en_start)
+    # first entry: map, rates and the first three morning slots are never mixed
+    head = en[en_start:en_start + 5 + 6]
+    kr_start = r.find("wild tables", " ".join(f"{b:02X}" for b in head))
+    kr_end, _ = wild_slots(r.d, kr_start)
+    assert kr_end - kr_start == en_end - en_start, "wild tables differ in size"
+    shift = kr_start - en_start
+    # same maps in the same order: compare each entry's map group/number
+    maps_en = wild_maps(en, en_start)
+    maps_kr = wild_maps(r.d, kr_start)
+    assert maps_en == maps_kr, "wild tables list different maps"
+    changed = 0
+    for o in sorted(mixable):
+        if r.d[o + shift] != en[o]:
+            r.d[o + shift] = en[o]
+            changed += 1
+    r.log.append(f"wild: {kr_start:06x}-{kr_end:06x} {changed} mixed species copied from English build")
+
+
+def wild_maps(data, start):
+    off, maps = start, []
+    for size in (47, 9, 47, 9):
+        while data[off] != 0xFF:
+            maps.append((data[off], data[off + 1]))
+            off += size
+        off += 1
+    return maps
+
+
 def fix_global_checksum(d):
     s = (sum(d) - d[0x14E] - d[0x14F]) & 0xFFFF
     d[0x14E], d[0x14F] = s >> 8, s & 0xFF
@@ -201,6 +259,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--en-rom", default="pokegold.gbc", help="English mod build (mixed wild tables)")
+    ap.add_argument("--en-sym", default="pokegold.sym")
     ap.add_argument("--log")
     args = ap.parse_args()
     data = Path(args.base).read_bytes()
@@ -208,6 +268,7 @@ def main():
     r = Rom(data)
     patch_shiny(r)
     patch_exp(r)
+    patch_wild(r, args.en_rom, args.en_sym)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
     text = "\n".join(r.log) + "\n"
