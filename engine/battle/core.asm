@@ -2096,17 +2096,9 @@ UpdateBattleStateAndExperienceAfterEnemyFaint:
 	ld a, [wBattleResult]
 	and BATTLERESULT_BITMASK
 	ld [wBattleResult], a ; WIN
-	call IsAnyMonHoldingExpShare
-	jr z, .skip_exp
-	ld hl, wEnemyMonBaseStats
-	ld b, wEnemyMonEnd - wEnemyMonBaseStats
-.loop
-	srl [hl]
-	inc hl
-	dec b
-	jr nz, .loop
-
-.skip_exp
+; Exp All: participants get full exp, the rest of the party gets half
+	call GetExpAllMons
+	push de
 	ld hl, wEnemyMonBaseStats
 	ld de, wBackupEnemyMonBaseStats
 	ld bc, wEnemyMonEnd - wEnemyMonBaseStats
@@ -2114,7 +2106,9 @@ UpdateBattleStateAndExperienceAfterEnemyFaint:
 	xor a
 	ld [wGivingExperienceToExpShareHolders], a
 	call GiveExperiencePoints
-	call IsAnyMonHoldingExpShare
+	pop de
+	ld a, d
+	and a
 	ret z
 
 	ld a, [wBattleParticipantsNotFainted]
@@ -2125,11 +2119,65 @@ UpdateBattleStateAndExperienceAfterEnemyFaint:
 	ld de, wEnemyMonBaseStats
 	ld bc, wEnemyMonEnd - wEnemyMonBaseStats
 	call CopyBytes
+	ld hl, wEnemyMonBaseStats
+	ld b, wEnemyMonEnd - wEnemyMonBaseStats
+.halve_loop
+	srl [hl]
+	inc hl
+	dec b
+	jr nz, .halve_loop
 	ld a, $1
 	ld [wGivingExperienceToExpShareHolders], a
 	call GiveExperiencePoints
 	pop af
 	ld [wBattleParticipantsNotFainted], a
+	ret
+
+GetExpAllMons:
+; Return d = alive non-egg party mons that did not battle (nz if any)
+	ld a, [wPartyCount]
+	ld b, a
+	ld hl, wPartyMon1HP
+	ld c, 1
+	ld d, 0
+.loop
+	ld a, [hli]
+	or [hl]
+	dec hl
+	jr z, .next
+	ld a, d
+	or c
+	ld d, a
+.next
+	sla c
+	push de
+	ld de, PARTYMON_STRUCT_LENGTH
+	add hl, de
+	pop de
+	dec b
+	jr nz, .loop
+
+	ld hl, wPartySpecies
+	ld c, 1
+.egg_loop
+	ld a, [hli]
+	cp -1
+	jr z, .done
+	cp EGG
+	jr nz, .next_egg
+	ld a, c
+	cpl
+	and d
+	ld d, a
+.next_egg
+	sla c
+	jr .egg_loop
+
+.done
+	ld a, [wBattleParticipantsNotFainted]
+	cpl
+	and d
+	ld d, a
 	ret
 
 IsAnyMonHoldingExpShare:
@@ -5859,10 +5907,12 @@ LoadEnemyMon:
 ; (HP is initialized at the end of the battle)
 	call GetRoamMonDVs
 	inc hl
-	call BattleRandom
+	ld a, SPDSPCDV_SHINY
 	ld [hld], a
 	ld c, a
 	call BattleRandom
+	and $f0
+	or $2a ; shiny Atk DV bit, Def DV 10
 	ld [hl], a
 	ld b, a
 ; We're done with DVs
@@ -5881,6 +5931,15 @@ LoadEnemyMon:
 	jr .UpdateDVs
 
 .GenerateDVs:
+; Every wild mon is shiny: random shiny Atk DV keeps genders mixed
+	call BattleRandom
+	and $f0
+	or $2a ; shiny Atk DV bit, Def DV 10
+	ld b, a
+	ld c, SPDSPCDV_SHINY
+	jr .UpdateDVs
+
+.GenerateNormalDVs:
 ; Generate new random DVs
 	call BattleRandom
 	ld b, a
@@ -5912,7 +5971,8 @@ LoadEnemyMon:
 ; Can't use any letters that haven't been unlocked
 ; If combined with forced shiny battletype, causes an infinite loop
 	call CheckUnownLetter
-	jr c, .GenerateDVs ; try again
+; Shiny Unown can only be I or V, so fall back to normal DVs if those are locked
+	jr c, .GenerateNormalDVs ; try again
 
 .Magikarp:
 ; These filters are untranslated.
@@ -5982,7 +6042,7 @@ LoadEnemyMon:
 ; Try again if length < 1024 mm (i.e. if HIGH(length) < 3 feet)
 	ld a, [wMagikarpLength]
 	cp HIGH(1024) ; should be "cp 3", since 1024 mm = 3'4", but HIGH(1024) = 4
-	jr c, .GenerateDVs ; try again
+	jp c, .GenerateDVs ; try again
 
 ; Finally done with DVs
 
@@ -6751,7 +6811,7 @@ GiveExperiencePoints:
 	and a
 	ret nz
 
-	call .EvenlyDivideExpAmongParticipants
+; Exp All: every participant gets full exp instead of an even split
 	xor a
 	ld [wCurPartyMon], a
 	ld bc, wPartyMon1Species
