@@ -12,6 +12,7 @@
 // User configurable.
 const ROM_FILENAME = 'pokegold.gbc';
 const ENABLE_FAST_FORWARD = true;
+const FAST_FORWARD_SPEED = 3;  // mod: fixed speed while fast-forward is on
 const ENABLE_REWIND = true;
 const ENABLE_PAUSE = false;
 const ENABLE_SWITCH_PALETTES = true;
@@ -132,6 +133,12 @@ const vm = new VM();
   emulator.setBuiltinPalette(vm.palIdx);
 })();
 
+
+// mod: on-screen fast-forward switch for PC and phones
+document.getElementById('ff_toggle').addEventListener('click', (event) => {
+  if (emulator) emulator.toggleFastForward();
+  event.currentTarget.blur();
+});
 
 // Copied from demo.js
 function makeWasmBuffer(module, ptr, size) {
@@ -371,9 +378,10 @@ class Emulator {
 
       if (this.fastForward) {
         // Estimate how much faster we can run in fast-forward, keeping the
-        // same rAF update rate.
+        // same rAF update rate. mod: capped at FAST_FORWARD_SPEED.
         const speedUp = (deltaTicks / CPU_TICKS_PER_SECOND) / deltaTimeSec;
-        const extraFrames = Math.floor(speedUp - deltaTimeSec);
+        const extraFrames =
+            Math.max(0, Math.min(FAST_FORWARD_SPEED - 1, Math.floor(speedUp - 1)));
         const extraTicks = extraFrames * deltaTicks;
         runUntilTicks = this.ticks + extraTicks - this.leftoverTicks;
         this.runUntil(runUntilTicks);
@@ -581,9 +589,17 @@ class Emulator {
     }
   }
 
+  // mod: Shift and the on-screen button toggle fast-forward instead of holding
   setFastForward(isKeyDown) {
     if (!ENABLE_FAST_FORWARD) { return; }
-    this.fastForward = isKeyDown;
+    if (isKeyDown) this.toggleFastForward();
+  }
+
+  toggleFastForward() {
+    this.fastForward = !this.fastForward;
+    const el = document.getElementById('ff_toggle');
+    el.textContent = `▶▶ x${FAST_FORWARD_SPEED} ${this.fastForward ? 'ON' : 'OFF'}`;
+    el.classList.toggle('on', this.fastForward);
   }
 
   setJoypDown(set) { this.module._set_joyp_down(this.e, set); }

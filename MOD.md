@@ -24,6 +24,8 @@
 ## 웹에서 실행
 
 - `python -m http.server 8000 --directory C:/Users/nojin_ijryw4c/repos/pokegold/web` 후 http://localhost:8000
-- 키: 방향키, X=A, Z=B, Enter=Start, Tab=Select, 왼쪽 Shift=빨리감기, Backspace=되감기
+- 키: 방향키, X=A, Z=B, Enter=Start, Tab=Select, Backspace=되감기
+- 빨리감기(3배)는 켜고 끄는 스위치 — 오른쪽 위 `▶▶` 버튼 또는 왼쪽 Shift
+- 화면은 창 크기에 맞춰 10:9 비율로 맞춰진다. 터치 기기는 화면 패드가 나오고, 세로 모드에서는 게임 화면이 패드 위에 놓인다
 - 세이브는 브라우저 localStorage(`extram`)에 저장된다
 - 에뮬레이터: binjgb 웹 빌드(MIT, `web/LICENSE.binjgb`·`web/LICENSE.gbstudio`)
