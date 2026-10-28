@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Put the web player on the ssafy_schedule EC2 (shared with agent_town) at https://gold.3-35-233-70.sslip.io
-#   files: web/* + pokegold.gbc -> /srv/pokegold/web, tools/web_server.py -> /srv/pokegold/
+#   files: web/* + pokegold.gbc (English) + .build/kr/pokegold_kr.gbc (Korean, rebuilt here with
+#   tools/kr_patch.py from .build/kr/baserom_kr.gbc) -> /srv/pokegold/web, tools/web_server.py -> /srv/pokegold/
 #   save + backups stay in /srv/pokegold/data (never touched here)
 #   scp to <file>.new -> mv in one go -> restart pokegold-web -> compare sha256 with local
 # --setup (first time only): create /srv/pokegold, the pokegold-web systemd unit (127.0.0.1:8789)
@@ -19,9 +20,10 @@ PORT=8789
 WEB=(web/index.html web/simple.js web/simple.css web/reset.css web/binjgb.js web/binjgb.wasm
      web/favicon.svg web/LICENSE.binjgb web/LICENSE.gbstudio)
 [ -f pokegold.gbc ] || { echo "pokegold.gbc not built"; exit 1; }
-if [ -n "$(git status --porcelain -- web tools/web_server.py)" ]; then
-  echo "uncommitted changes, not deploying:"; git status --short -- web tools/web_server.py; exit 1
+if [ -n "$(git status --porcelain -- web tools/web_server.py tools/kr_patch.py)" ]; then
+  echo "uncommitted changes, not deploying:"; git status --short -- web tools/web_server.py tools/kr_patch.py; exit 1
 fi
+python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out .build/kr/pokegold_kr.gbc
 
 if [ "${1:-}" = "--setup" ]; then
   ssh "${O[@]}" "$H" bash -s -- "$SITE" "$PORT" <<'REMOTE'
@@ -65,9 +67,10 @@ fi
 REMOTE
 fi
 
-FILES=("${WEB[@]}" pokegold.gbc tools/web_server.py)
+FILES=("${WEB[@]}" pokegold.gbc .build/kr/pokegold_kr.gbc tools/web_server.py)
 for f in "${WEB[@]}"; do scp "${O[@]}" -q "$f" "$H:/srv/pokegold/web/$(basename "$f").new"; done
 scp "${O[@]}" -q pokegold.gbc "$H:/srv/pokegold/web/pokegold.gbc.new"
+scp "${O[@]}" -q .build/kr/pokegold_kr.gbc "$H:/srv/pokegold/web/pokegold_kr.gbc.new"
 scp "${O[@]}" -q tools/web_server.py "$H:/srv/pokegold/web_server.py.new"
 R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && for f in web/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
   && sudo systemctl restart pokegold-web && sleep 2 && systemctl is-active pokegold-web \

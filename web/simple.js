@@ -10,7 +10,11 @@
 "use strict";
 
 // User configurable.
-const ROM_FILENAME = 'pokegold.gbc';
+// mod: Korean ROM by default, English with ?lang=en. Each language keeps its
+// own save (the save formats differ), on the server and in localStorage.
+const LANG = new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'kr';
+const ROM_FILENAME = LANG === 'en' ? 'pokegold.gbc' : 'pokegold_kr.gbc';
+const LOCAL_SAVE_KEY = LANG === 'en' ? 'extram' : 'extram_kr';
 const ENABLE_FAST_FORWARD = true;
 const FAST_FORWARD_SPEED = 3;  // mod: fixed speed while fast-forward is on
 const ENABLE_REWIND = true;
@@ -119,7 +123,7 @@ class VM {
   updateExtRam() {
     if (!emulator) return;
     const extram = emulator.getExtRam().slice();
-    localStorage.setItem('extram', JSON.stringify(Array.from(extram)));
+    localStorage.setItem(LOCAL_SAVE_KEY, JSON.stringify(Array.from(extram)));
     uploadSave(extram);
   }
 };
@@ -128,7 +132,17 @@ const vm = new VM();
 
 // mod: the save lives on the server (api/save) so any device continues it;
 // localStorage stays as the fallback when the server is unreachable.
-const SAVE_URL = 'api/save';
+const SAVE_URL = `api/save?slot=${LANG}`;
+
+// mod: language switch (reloads with the other ROM and its own save)
+{
+  const el = document.getElementById('lang_toggle');
+  el.textContent = LANG === 'en' ? '한국어로' : 'English';
+  el.addEventListener('click', () => {
+    if (emulator) vm.updateExtRam();
+    location.search = LANG === 'en' ? '' : '?lang=en';
+  });
+}
 
 function setSaveStatus(text) {
   document.getElementById('save_status').textContent = text;
@@ -171,7 +185,7 @@ async function uploadSave(extram) {
   let romBuffer = await response.arrayBuffer();
   let extRam = await downloadSave();
   if (extRam === undefined) {
-    extRam = new Uint8Array(JSON.parse(localStorage.getItem('extram')));
+    extRam = new Uint8Array(JSON.parse(localStorage.getItem(LOCAL_SAVE_KEY)));
   } else if (extRam === null) {
     extRam = new Uint8Array(0);
   }

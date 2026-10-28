@@ -1,9 +1,10 @@
 """Serve the web player and keep the game save on the server.
 
 - GET  /            files from --web-dir (index.html, emulator, ROM)
-- GET  /api/save    current save (404 if none yet)
-- PUT  /api/save    replace the save; the previous one is kept in backups/
-                    (newest BACKUP_KEEP files)
+- GET  /api/save?slot=kr|en    current save of that ROM (404 if none yet)
+- PUT  /api/save?slot=kr|en    replace it; the previous one is kept in backups/
+                               (newest BACKUP_KEEP files per slot)
+  The English save keeps its first name save.sav; the Korean one is save-kr.sav.
 
 No login here: it listens on 127.0.0.1 only and Caddy puts basicauth in front.
 
@@ -16,6 +17,7 @@ import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 MAX_SAVE_BYTES = 64 * 1024  # Gold uses 32 KiB of cartridge RAM
 BACKUP_KEEP = 30
@@ -28,10 +30,22 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
+    def _slot(self):
+        """(save file, backup name prefix) for ?slot=, or None for an unknown slot."""
+        query = parse_qs(urlsplit(self.path).query)
+        slot = query.get("slot", ["en"])[0]
+        if slot == "en":
+            return self.data_dir / "save.sav", "save-2"
+        if slot == "kr":
+            return self.data_dir / "save-kr.sav", "save-kr-"
+        return None
+
     def do_GET(self):
         if self.path.split("?")[0] != "/api/save":
             return super().do_GET()
-        save = self.data_dir / "save.sav"
+        if not self._slot():
+            return self.send_error(400, "unknown slot")
+        save = self._slot()[0]
         if not save.exists():
             return self.send_error(404, "no save yet")
         body = save.read_bytes()
@@ -48,14 +62,17 @@ class Handler(SimpleHTTPRequestHandler):
         if not 0 < length <= MAX_SAVE_BYTES:
             return self.send_error(400, "bad save size")
         body = self.rfile.read(length)
-        save = self.data_dir / "save.sav"
+        if not self._slot():
+            return self.send_error(400, "unknown slot")
+        save, prefix = self._slot()
         backups = self.data_dir / "backups"
         backups.mkdir(exist_ok=True)
         if save.exists():
             if save.read_bytes() == body:
                 return self._ok()
-            shutil.copy2(save, backups / f"save-{time.strftime('%Y%m%d-%H%M%S')}.sav")
-            for old in sorted(backups.glob("save-*.sav"))[:-BACKUP_KEEP]:
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            shutil.copy2(save, backups / f"{prefix}{stamp[1:] if prefix == 'save-2' else stamp}.sav")
+            for old in sorted(backups.glob(f"{prefix}*.sav"))[:-BACKUP_KEEP]:
                 old.unlink()
         tmp = save.with_suffix(".tmp")
         tmp.write_bytes(body)

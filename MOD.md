@@ -15,6 +15,14 @@
   - 뮤 Lv30 갈색시티 부두 (29,24)
   - 세레비 Lv30 너도밤나무숲 사당 옆 (9,22)
 
+## 한국어판
+
+- 정식 한국어판 ROM(`POKEMON_GLD` `AAUK`, sha1 `c0ff3999…`)에 같은 개조를 바이너리 패치로 옮긴다 — `tools/kr_patch.py`
+  - 원본 ROM은 `.build/kr/baserom_kr.gbc`(git 밖). 패치 위치는 바이트 패턴(주소 부분 제외)이 한 곳에만 맞아야 하고, 원래 바이트를 확인한 뒤 쓴다
+  - 옮긴 것: 이로치(야생·배회·선물·박스 선물·알), 파티 전원 경험치
+  - 아직: 반대 지역 출현, 전설 6마리 배치
+- 웹은 한국어판이 기본, 오른쪽 위 `English`로 영어판(`?lang=en`) — 세이브는 언어별로 따로(`api/save?slot=kr|en`)
+
 ## 빌드
 
 - Docker 이미지(한 번만): `docker build -t pokegold-build .build` — `.build/Dockerfile`은 git 밖(`.git/info/exclude`)
