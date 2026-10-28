@@ -275,6 +275,15 @@ body {
   cursor: pointer;
   touch-action: manipulation;
 }
+#save_status {
+  position: fixed;
+  top: 18px;
+  left: 12px;
+  z-index: 10;
+  color: #9fb3b5;
+  font: 13px "Helvetica Neue", Helvetica, Arial, sans-serif;
+  pointer-events: none;
+}
 #ff_toggle.on {
   background: #c79a1a;
   border-color: #f6d04d;

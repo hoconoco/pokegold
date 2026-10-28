@@ -117,18 +117,63 @@ class VM {
 
   updateExtRam() {
     if (!emulator) return;
-    const extram = emulator.getExtRam();
+    const extram = emulator.getExtRam().slice();
     localStorage.setItem('extram', JSON.stringify(Array.from(extram)));
+    uploadSave(extram);
   }
 };
 
 const vm = new VM();
 
+// mod: the save lives on the server (api/save) so any device continues it;
+// localStorage stays as the fallback when the server is unreachable.
+const SAVE_URL = 'api/save';
+
+function setSaveStatus(text) {
+  document.getElementById('save_status').textContent = text;
+}
+
+async function downloadSave() {
+  try {
+    const response = await fetch(SAVE_URL, {cache: 'no-store'});
+    if (response.ok) {
+      setSaveStatus('세이브: 서버');
+      return new Uint8Array(await response.arrayBuffer());
+    }
+    if (response.status === 404) {
+      setSaveStatus('세이브: 서버(새 게임)');
+      return null;
+    }
+  } catch (e) {}
+  setSaveStatus('세이브: 이 브라우저만');
+  return undefined;
+}
+
+async function uploadSave(extram) {
+  try {
+    const response = await fetch(SAVE_URL, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/octet-stream'},
+      body: extram,
+    });
+    setSaveStatus(response.ok
+        ? `세이브: 서버 ${new Date().toLocaleTimeString()}`
+        : '세이브: 서버 저장 실패');
+  } catch (e) {
+    setSaveStatus('세이브: 서버 저장 실패');
+  }
+}
+
 // Load a ROM.
 (async function go() {
   let response = await fetch(ROM_FILENAME);
   let romBuffer = await response.arrayBuffer();
-  const extRam = new Uint8Array(JSON.parse(localStorage.getItem('extram')));
+  let extRam = await downloadSave();
+  if (extRam === undefined) {
+    extRam = new Uint8Array(JSON.parse(localStorage.getItem('extram')));
+  } else if (extRam === null) {
+    extRam = new Uint8Array(0);
+  }
   Emulator.start(await binjgbPromise, romBuffer, extRam);
   emulator.setBuiltinPalette(vm.palIdx);
 })();
