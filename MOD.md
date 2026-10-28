@@ -23,7 +23,12 @@
 
 ## 웹에서 실행
 
-- `python -m http.server 8000 --directory C:/Users/nojin_ijryw4c/repos/pokegold/web` 후 http://localhost:8000
+- 접속: https://gold.3-35-233-70.sslip.io — 에이전트 타운과 같은 아이디·비밀번호
+  - ssafy_schedule EC2(에이전트 타운과 공용)의 Caddy `gold.` 블록 → 서비스 `pokegold-web`(127.0.0.1:8789, `tools/web_server.py`)
+  - 세이브는 서버 `/srv/pokegold/data/save.sav`, 덮어쓸 때마다 이전 것을 `backups/`에 30개까지 둔다 — 어느 기기에서든 이어서 한다
+  - 화면 왼쪽 위에 세이브 상태(서버 저장 시각)가 나온다. 서버에 닿지 않으면 그 브라우저에만 저장한다
+- 배포: `bash C:/Users/nojin_ijryw4c/repos/pokegold/tools/deploy_ec2.sh` — 커밋된 `web/`·`tools/web_server.py`와 빌드된 `pokegold.gbc`를 올리고 sha256을 맞춘다(세이브는 건드리지 않음). `--setup`은 처음 한 번(폴더·서비스·Caddy 블록)
+- 로컬 시험: `python -X utf8 tools/web_server.py --web-dir web --data-dir <임시폴더> --port 8790`
 - 키: 방향키, X=A, Z=B, Enter=Start, Tab=Select, Backspace=되감기
 - 빨리감기(3배)는 켜고 끄는 스위치 — 오른쪽 위 `▶▶` 버튼 또는 왼쪽 Shift
 - 화면은 창 크기에 맞춰 10:9 비율로 맞춰진다. 터치 기기는 화면 패드가 나오고, 세로 모드에서는 게임 화면이 패드 위에 놓인다
