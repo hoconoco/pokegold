@@ -50,8 +50,8 @@ sudo systemctl enable pokegold-web
 if ! grep -q "^$SITE " /etc/caddy/Caddyfile; then
   BAK=/etc/caddy/Caddyfile.bak-$(date +%Y%m%d%H%M%S)
   sudo cp /etc/caddy/Caddyfile "$BAK"
-  AUTH=$(awk '/basicauth/{f=1;next} f&&NF==2{print $1" "$2;exit}' /etc/caddy/Caddyfile)
-  [ -n "$AUTH" ] || { echo "basicauth line not found"; exit 1; }
+  AUTH=$(awk '/^[ \t]*basicauth \{/{f=1;next} f&&NF==2{print $1" "$2;exit}' /etc/caddy/Caddyfile)
+  case "$AUTH" in *' $2'*) ;; *) echo "basicauth user/hash line not found"; exit 1;; esac
   printf '\n%s {\n\tbasicauth {\n\t\t%s\n\t}\n\treverse_proxy 127.0.0.1:%s\n}\n' "$SITE" "$AUTH" "$PORT" \
     | sudo tee -a /etc/caddy/Caddyfile >/dev/null
   if sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
