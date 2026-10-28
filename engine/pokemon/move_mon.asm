@@ -202,10 +202,12 @@ endr
 	and a
 	jr nz, .copywildmonDVs
 
+; Gift mons (starter etc.) are shiny too: random shiny Atk DV keeps genders mixed
 	call Random
+	and $f0
+	or $2a ; shiny Atk DV bit, Def DV 10
 	ld b, a
-	call Random
-	ld c, a
+	ld c, SPDSPCDV_SHINY
 .initializeDVs
 	ld a, b
 	ld [de], a
@@ -1664,6 +1666,13 @@ GivePoke::
 	ld a, [wCurPartySpecies]
 	ld [wTempEnemyMonSpecies], a
 	callfar LoadEnemyMon
+; Gift mons sent to the box are shiny too
+	call Random
+	and $f0
+	or $2a ; shiny Atk DV bit, Def DV 10
+	ld [wEnemyMonDVs], a
+	ld a, SPDSPCDV_SHINY
+	ld [wEnemyMonDVs + 1], a
 	call SendMonIntoBox
 	jp nc, .FailedToGiveMon
 	ld a, BOXMON

@@ -51,6 +51,7 @@ const REWIND_UPDATE_MS = 16;  // Rewind setInterval rate
 // Probably OK to leave these alone too.
 const AUDIO_FRAMES = 4096;      // Number of audio frames pushed per buffer
 const AUDIO_LATENCY_SEC = 0.1;
+const AUDIO_MAX_AHEAD_SEC = 0.3;  // mod: never queue more sound than this
 const MAX_UPDATE_SEC = 5 / 60;  // Max. time to run emulator per step (== 5 frames)
 
 // Constants
@@ -689,6 +690,15 @@ class Audio {
     const nowPlusLatency = nowSec + AUDIO_LATENCY_SEC;
     const volume = vm.volume;
     this.startSec = (this.startSec || nowPlusLatency);
+    // mod: keep sound in sync with the picture. Skip sound while
+    // fast-forwarding, and drop buffers that would queue too far ahead
+    // (the emulator clock runs a bit faster than the audio clock, so the
+    // queue used to grow and sounds played late).
+    if (emulator && emulator.fastForward) {
+      this.startSec = 0;
+      return;
+    }
+    if (this.startSec > nowSec + AUDIO_MAX_AHEAD_SEC) { return; }
     if (this.startSec >= nowSec) {
       const buffer = Audio.ctx.createBuffer(2, AUDIO_FRAMES, this.sampleRate);
       const channel0 = buffer.getChannelData(0);

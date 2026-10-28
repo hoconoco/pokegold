@@ -692,6 +692,13 @@ DayCare_InitBreeding:
 	ld [hl], a
 
 .SkipDVs:
+; Every egg hatches shiny: keep the Atk DV, force the shiny Def/Spd/Spc DVs
+	ld hl, wEggMonDVs
+	ld a, [hl]
+	and $f0
+	or $2a ; shiny Atk DV bit, Def DV 10
+	ld [hli], a
+	ld [hl], SPDSPCDV_SHINY
 	ld hl, wStringBuffer1
 	ld de, wMonOrItemNameBuffer
 	ld bc, NAME_LENGTH
