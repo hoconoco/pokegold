@@ -12,9 +12,13 @@
 // User configurable.
 // mod: Korean ROM by default, English with ?lang=en. Each language keeps its
 // own save (the save formats differ), on the server and in localStorage.
-const LANG = new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : 'kr';
-const ROM_FILENAME = LANG === 'en' ? 'pokegold.gbc' : 'pokegold_kr.gbc';
-const LOCAL_SAVE_KEY = LANG === 'en' ? 'extram' : 'extram_kr';
+// mod: Gold by default, Silver with ?ver=silver — each version and language has its own ROM and save.
+const PARAMS = new URLSearchParams(location.search);
+const LANG = PARAMS.get('lang') === 'en' ? 'en' : 'kr';
+const VER = PARAMS.get('ver') === 'silver' ? 'silver' : 'gold';
+const ROM_FILENAME = `poke${VER}${LANG === 'en' ? '' : '_kr'}.gbc`;
+const SLOT = LANG + (VER === 'silver' ? '_silver' : '');
+const LOCAL_SAVE_KEY = { en: 'extram', kr: 'extram_kr', en_silver: 'extram_silver', kr_silver: 'extram_kr_silver' }[SLOT];
 const ENABLE_FAST_FORWARD = true;
 const FAST_FORWARD_SPEED = 3;  // mod: fixed speed while fast-forward is on
 const ENABLE_REWIND = true;
@@ -132,16 +136,24 @@ const vm = new VM();
 
 // mod: the save lives on the server (api/save) so any device continues it;
 // localStorage stays as the fallback when the server is unreachable.
-const SAVE_URL = `api/save?slot=${LANG}`;
+const SAVE_URL = `api/save?slot=${SLOT}`;
 
-// mod: language switch (reloads with the other ROM and its own save)
+// mod: language and version switches (reload with the other ROM and its own save)
+function gotoRom(lang, ver) {
+  if (emulator) vm.updateExtRam();
+  const q = new URLSearchParams();
+  if (lang === 'en') q.set('lang', 'en');
+  if (ver === 'silver') q.set('ver', 'silver');
+  location.search = q.toString();
+}
 {
   const el = document.getElementById('lang_toggle');
   el.textContent = LANG === 'en' ? '한국어로' : 'English';
-  el.addEventListener('click', () => {
-    if (emulator) vm.updateExtRam();
-    location.search = LANG === 'en' ? '' : '?lang=en';
-  });
+  el.addEventListener('click', () => gotoRom(LANG === 'en' ? 'kr' : 'en', VER));
+  const v = document.getElementById('ver_toggle');
+  v.textContent = VER === 'silver' ? (LANG === 'en' ? 'Gold' : '골드로') : (LANG === 'en' ? 'Silver' : '실버로');
+  v.addEventListener('click', () => gotoRom(LANG, VER === 'silver' ? 'gold' : 'silver'));
+  document.title = VER === 'silver' ? 'Pokémon Silver' : document.title;
 }
 
 function setSaveStatus(text) {

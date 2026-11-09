@@ -1,7 +1,7 @@
 """Serve the web player and keep the game save on the server.
 
 - GET  /            files from --web-dir (index.html, emulator, ROM)
-- GET  /api/save?slot=kr|en    current save of that ROM (404 if none yet)
+- GET  /api/save?slot=kr|en|kr_silver|en_silver    current save of that ROM (404 if none yet)
 - PUT  /api/save?slot=kr|en    replace it; the previous one is kept in backups/
                                (newest BACKUP_KEEP files per slot)
   The English save keeps its first name save.sav; the Korean one is save-kr.sav.
@@ -38,6 +38,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self.data_dir / "save.sav", "save-2"
         if slot == "kr":
             return self.data_dir / "save-kr.sav", "save-kr-"
+        if slot == "en_silver":
+            return self.data_dir / "save-silver.sav", "save-silver-"
+        if slot == "kr_silver":
+            return self.data_dir / "save-kr-silver.sav", "save-kr-silver-"
         return None
 
     def do_GET(self):
