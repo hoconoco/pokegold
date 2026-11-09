@@ -75,13 +75,23 @@ scp "${O[@]}" -q .build/kr/pokegold_kr.gbc "$H:/srv/pokegold/web/pokegold_kr.gbc
 scp "${O[@]}" -q pokesilver.gbc "$H:/srv/pokegold/web/pokesilver.gbc.new"
 scp "${O[@]}" -q .build/kr/pokesilver_kr.gbc "$H:/srv/pokegold/web/pokesilver_kr.gbc.new"
 scp "${O[@]}" -q tools/web_server.py "$H:/srv/pokegold/web_server.py.new"
-R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && for f in web/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
+# cartridge photos for the first screen (web/carts/*.png, git-ignored, optional)
+CARTS=(); for f in web/carts/*.png; do [ -f "$f" ] && CARTS+=("$f"); done
+if [ ${#CARTS[@]} -gt 0 ]; then
+  ssh "${O[@]}" "$H" "mkdir -p /srv/pokegold/web/carts"
+  for f in "${CARTS[@]}"; do scp "${O[@]}" -q "$f" "$H:/srv/pokegold/web/carts/$(basename "$f").new"; done
+fi
+R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && shopt -s nullglob && for f in web/*.new web/carts/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
   && sudo systemctl restart pokegold-web && sleep 2 && systemctl is-active pokegold-web \
-  && cd web && sha256sum * && cd .. && sha256sum web_server.py")
+  && cd web && sha256sum *.* && { [ ! -d carts ] || sha256sum carts/*; } && cd .. && sha256sum web_server.py")
 echo "$R"
 ok=1
 for f in "${FILES[@]}"; do
   name=$(basename "$f")
+  [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$(echo "$R" | grep " $name\$" | cut -d' ' -f1)" ] || { echo "sha256 differs: $f"; ok=0; }
+done
+for f in "${CARTS[@]}"; do
+  name=carts/$(basename "$f")
   [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$(echo "$R" | grep " $name\$" | cut -d' ' -f1)" ] || { echo "sha256 differs: $f"; ok=0; }
 done
 [ $ok = 1 ] && echo "deployed: $(git log -1 --format='%h %s') -> https://$SITE" || exit 1
