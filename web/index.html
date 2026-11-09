@@ -1,38 +1,287 @@
 <!DOCTYPE html>
-<!-- copied from
-https://github.com/chrismaltby/gb-studio/blob/v2beta/appData/js-emulator/index.html
-(see LICENSE.gbstudio)
--->
+<!-- mod: first screen — pick the cartridge (version × language), then play.html runs it -->
+<html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="simple.css">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <title>Pokemon Gold Mod</title>
+  <title>게임판 고르기</title>
+  <script>
+    // old links (/?ver=silver, /?lang=en) go straight to the game
+    if (/[?&](ver|lang)=/.test(location.search)) location.replace('play.html' + location.search);
+  </script>
+  <style>
+    :root {
+      --bg: #031921;
+      --ink: #e6ecec;
+      --dim: #8fa3a6;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: radial-gradient(ellipse at 50% 0%, #0b3443 0%, var(--bg) 70%) fixed, var(--bg);
+      color: var(--ink);
+      font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 48px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    p.sub { margin: 0 0 32px; color: var(--dim); font-size: 14px; }
+
+    .shelf {
+      display: grid;
+      grid-template-columns: repeat(4, auto);
+      gap: 36px 28px;
+      justify-content: center;
+    }
+    @media (max-width: 960px) { .shelf { grid-template-columns: repeat(2, auto); } }
+
+    /* ---- cartridge (Game Boy shape: 57 x 65 mm, cut top-right corner) ---- */
+    .cart {
+      --w: min(200px, calc((100vw - 32px - 28px) / 2));
+      width: var(--w);
+      height: calc(var(--w) * 1.14);
+      position: relative;
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
+      transition: transform 0.18s ease, filter 0.18s ease;
+      outline: none;
+    }
+    .cart:hover, .cart:focus-visible {
+      transform: translateY(-8px) rotate(-1deg);
+      filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.6));
+    }
+    .cart:focus-visible .shell { box-shadow: 0 0 0 3px #fff inset; }
+    .cart.inserting { transform: translateY(-120vh); transition: transform 0.45s ease-in; }
+
+    .shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 4% 0 7% 7% / 3.5% 0 6% 6%;
+      clip-path: polygon(0 0, 91% 0, 100% 8%, 100% 100%, 0 100%);
+      background: var(--plastic);
+      overflow: hidden;
+    }
+    /* translucent plastic: sheen + the board faintly visible through it */
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(115deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 28%),
+        linear-gradient(180deg, rgba(0,0,0,0) 72%, rgba(0,0,0,0.18) 100%),
+        radial-gradient(ellipse 30% 14% at 30% 88%, rgba(40,90,40,0.25), transparent),
+        radial-gradient(ellipse 22% 10% at 70% 86%, rgba(30,30,30,0.22), transparent);
+      pointer-events: none;
+    }
+    /* edge bevel */
+    .shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow:
+        inset 2px 2px 2px rgba(255,255,255,0.55),
+        inset -3px -3px 4px rgba(0,0,0,0.28);
+      pointer-events: none;
+    }
+    .gold   { --plastic: linear-gradient(160deg, #f6dc7a 0%, #d8a92c 42%, #b6860f 100%); --groove: rgba(110,70,0,0.38); }
+    .silver { --plastic: linear-gradient(160deg, #f1f3f5 0%, #c3c8ce 45%, #979ea6 100%); --groove: rgba(50,58,68,0.35); }
+
+    /* grip ridges along the top */
+    .ridges {
+      position: absolute;
+      left: 6%; right: 12%; top: 3.5%;
+      height: 10%;
+      background: repeating-linear-gradient(180deg,
+        var(--groove) 0 2px, rgba(255,255,255,0.35) 2px 3px, transparent 3px 7px);
+      border-radius: 2px;
+    }
+    /* recessed label well */
+    .well {
+      position: absolute;
+      left: 7%; right: 7%; top: 17%;
+      height: 62%;
+      border-radius: 5px;
+      box-shadow: inset 2px 2px 3px rgba(0,0,0,0.35), inset -1px -1px 1px rgba(255,255,255,0.5);
+      padding: 3.5%;
+    }
+    .label {
+      position: relative;
+      width: 100%; height: 100%;
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--paper);
+      box-shadow: 0 1px 1px rgba(0,0,0,0.3);
+    }
+    .gold   .label { --paper: radial-gradient(circle at 50% 46%, #ffb547 0%, #d7461d 48%, #5a1306 100%); --title: #ffe27a; }
+    .silver .label { --paper: radial-gradient(circle at 50% 46%, #6fb4ff 0%, #1f4f9c 50%, #0b1a3c 100%); --title: #eef4ff; }
+    .label .series {
+      margin-top: 7%;
+      font-size: calc(var(--w) * 0.062);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #fff;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+    }
+    .label svg { width: 48%; flex: 1 1 auto; min-height: 0; }
+    .label .title {
+      font-size: calc(var(--w) * 0.12);
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      color: var(--title);
+      text-shadow: 0 2px 0 rgba(0,0,0,0.55), 0 0 6px rgba(0,0,0,0.35);
+      line-height: 1;
+      margin-bottom: 6%;
+    }
+    .label .region {
+      align-self: stretch;
+      text-align: center;
+      padding: 3% 0;
+      font-size: calc(var(--w) * 0.052);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+    }
+    /* embossed insert arrow */
+    .arrow {
+      position: absolute;
+      left: 50%; bottom: 7%;
+      width: 0; height: 0;
+      transform: translateX(-50%);
+      border-left: calc(var(--w) * 0.045) solid transparent;
+      border-right: calc(var(--w) * 0.045) solid transparent;
+      border-top: calc(var(--w) * 0.055) solid var(--groove);
+      filter: drop-shadow(1px 1px 0 rgba(255,255,255,0.45));
+    }
+    .caption {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--dim);
+    }
+  </style>
 </head>
 <body>
-  <div id="game">
-    <canvas id="mainCanvas" width="160" height="144">No Canvas Support</canvas>
-  </div>
-  <div id="controller">
-    <div id="controller_dpad">
-      <div id="controller_left"></div>
-      <div id="controller_right"></div>
-      <div id="controller_up"></div>
-      <div id="controller_down"></div>
+  <h1>게임판 고르기</h1>
+  <p class="sub">칩을 누르면 시작합니다 · 판마다 세이브가 따로입니다</p>
+
+  <div class="shelf">
+    <div>
+      <a class="cart gold" href="play.html" aria-label="포켓몬스터 골드 한국어판">
+        <div class="shell">
+          <div class="ridges"></div>
+          <div class="well"><div class="label">
+            <div class="series">포켓몬스터</div>
+            <svg viewBox="-50 -50 100 100"><use href="#sun"/></svg>
+            <div class="title">골드</div>
+            <div class="region">한국어판</div>
+          </div></div>
+          <div class="arrow"></div>
+        </div>
+      </a>
+      <div class="caption">골드 · 한국어</div>
     </div>
-    <div id="controller_select" class="capsuleBtn">Select</div>
-    <div id="controller_start" class="capsuleBtn">Start</div>
-    <div id="controller_b" class="roundBtn">B</div>
-    <div id="controller_a" class="roundBtn">A</div>
+    <div>
+      <a class="cart silver" href="play.html?ver=silver" aria-label="포켓몬스터 실버 한국어판">
+        <div class="shell">
+          <div class="ridges"></div>
+          <div class="well"><div class="label">
+            <div class="series">포켓몬스터</div>
+            <svg viewBox="-50 -50 100 100"><use href="#moon"/></svg>
+            <div class="title">실버</div>
+            <div class="region">한국어판</div>
+          </div></div>
+          <div class="arrow"></div>
+        </div>
+      </a>
+      <div class="caption">실버 · 한국어</div>
+    </div>
+    <div>
+      <a class="cart gold" href="play.html?lang=en" aria-label="Pokémon Gold, English">
+        <div class="shell">
+          <div class="ridges"></div>
+          <div class="well"><div class="label">
+            <div class="series">POKéMON</div>
+            <svg viewBox="-50 -50 100 100"><use href="#sun"/></svg>
+            <div class="title">GOLD</div>
+            <div class="region">ENGLISH</div>
+          </div></div>
+          <div class="arrow"></div>
+        </div>
+      </a>
+      <div class="caption">골드 · 영어</div>
+    </div>
+    <div>
+      <a class="cart silver" href="play.html?lang=en&amp;ver=silver" aria-label="Pokémon Silver, English">
+        <div class="shell">
+          <div class="ridges"></div>
+          <div class="well"><div class="label">
+            <div class="series">POKéMON</div>
+            <svg viewBox="-50 -50 100 100"><use href="#moon"/></svg>
+            <div class="title">SILVER</div>
+            <div class="region">ENGLISH</div>
+          </div></div>
+          <div class="arrow"></div>
+        </div>
+      </a>
+      <div class="caption">실버 · 영어</div>
+    </div>
   </div>
-  <div id="top_buttons">
-    <button id="lang_toggle" type="button">English</button>
-    <button id="ver_toggle" type="button">실버로</button>
-    <button id="ff_toggle" type="button">▶▶ x3 OFF</button>
-  </div>
-  <div id="save_status">세이브: 확인 중</div>
-  <script src="binjgb.js"></script>
-  <script src="simple.js"></script>
+
+  <!-- label emblems (drawn for this page): sun with feather rays, crescent over waves -->
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <radialGradient id="sunCore"><stop offset="0" stop-color="#fff6c8"/><stop offset="1" stop-color="#ffc533"/></radialGradient>
+      <path id="feather" d="M0 -20 C 7 -30, 6 -40, 0 -46 C -6 -40, -7 -30, 0 -20 Z"/>
+      <g id="sun">
+        <g fill="#ffd45a" stroke="#8a2a08" stroke-width="1.5">
+          <use href="#feather"/><use href="#feather" transform="rotate(30)"/><use href="#feather" transform="rotate(60)"/>
+          <use href="#feather" transform="rotate(90)"/><use href="#feather" transform="rotate(120)"/><use href="#feather" transform="rotate(150)"/>
+          <use href="#feather" transform="rotate(180)"/><use href="#feather" transform="rotate(210)"/><use href="#feather" transform="rotate(240)"/>
+          <use href="#feather" transform="rotate(270)"/><use href="#feather" transform="rotate(300)"/><use href="#feather" transform="rotate(330)"/>
+        </g>
+        <circle r="19" fill="url(#sunCore)" stroke="#8a2a08" stroke-width="2"/>
+      </g>
+      <g id="moon">
+        <mask id="crescent"><rect x="-50" y="-50" width="100" height="100" fill="#fff"/><circle cx="12" cy="-16" r="22" fill="#000"/></mask>
+        <circle cx="0" cy="-8" r="26" fill="#eef4ff" stroke="#0b1a3c" stroke-width="2" mask="url(#crescent)"/>
+        <g fill="none" stroke="#bfe0ff" stroke-width="4" stroke-linecap="round">
+          <path d="M-40 30 q 10 -8 20 0 t 20 0 t 20 0 t 20 0"/>
+          <path d="M-32 42 q 8 -6 16 0 t 16 0 t 16 0 t 16 0" opacity="0.7"/>
+        </g>
+      </g>
+    </defs>
+  </svg>
+
+  <script>
+    // short "insert" animation, then go
+    for (const a of document.querySelectorAll('.cart')) {
+      a.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        a.classList.add('inserting');
+        setTimeout(() => { location.href = a.href; }, 380);
+      });
+    }
+    // coming back with the browser's back button: show the shelf again
+    addEventListener('pageshow', () => {
+      for (const a of document.querySelectorAll('.cart.inserting')) a.classList.remove('inserting');
+    });
+  </script>
 </body>
+</html>

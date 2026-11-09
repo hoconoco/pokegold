@@ -138,21 +138,14 @@ const vm = new VM();
 // localStorage stays as the fallback when the server is unreachable.
 const SAVE_URL = `api/save?slot=${SLOT}`;
 
-// mod: language and version switches (reload with the other ROM and its own save)
-function gotoRom(lang, ver) {
-  if (emulator) vm.updateExtRam();
-  const q = new URLSearchParams();
-  if (lang === 'en') q.set('lang', 'en');
-  if (ver === 'silver') q.set('ver', 'silver');
-  location.search = q.toString();
-}
+// mod: back to the cartridge shelf (index.html) — the save is kept first
 {
-  const el = document.getElementById('lang_toggle');
-  el.textContent = LANG === 'en' ? '한국어로' : 'English';
-  el.addEventListener('click', () => gotoRom(LANG === 'en' ? 'kr' : 'en', VER));
-  const v = document.getElementById('ver_toggle');
-  v.textContent = VER === 'silver' ? (LANG === 'en' ? 'Gold' : '골드로') : (LANG === 'en' ? 'Silver' : '실버로');
-  v.addEventListener('click', () => gotoRom(LANG, VER === 'silver' ? 'gold' : 'silver'));
+  const el = document.getElementById('home_button');
+  if (LANG === 'en') el.textContent = 'Games';
+  el.addEventListener('click', () => {
+    if (emulator) vm.updateExtRam();
+    location.href = './';
+  });
   document.title = VER === 'silver' ? 'Pokémon Silver' : document.title;
 }
 

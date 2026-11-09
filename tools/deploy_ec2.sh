@@ -17,7 +17,7 @@ O=(-i "$SSAFY_SCHEDULE_KEY" -o BatchMode=yes)
 SITE=gold.3-35-233-70.sslip.io
 PORT=8789
 
-WEB=(web/index.html web/simple.js web/simple.css web/reset.css web/binjgb.js web/binjgb.wasm
+WEB=(web/index.html web/play.html web/simple.js web/simple.css web/reset.css web/binjgb.js web/binjgb.wasm
      web/favicon.svg web/LICENSE.binjgb web/LICENSE.gbstudio)
 [ -f pokegold.gbc ] && [ -f pokesilver.gbc ] || { echo "pokegold.gbc / pokesilver.gbc not built (make gold silver)"; exit 1; }
 if [ -n "$(git status --porcelain -- web tools/web_server.py tools/kr_patch.py)" ]; then
