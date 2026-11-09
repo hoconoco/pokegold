@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- mod: first screen — pick the cartridge (version × language), then play.html runs it -->
+<!-- mod: first screen — pick the cartridge (version × language), then play.html runs it.
+     The shell follows a real Game Boy cartridge (DMG shape, as Gold/Silver shipped): stepped top-right
+     corner, recessed top band with the embossed wordmark and grip ridges on both sides, recessed label
+     with grey side strips (product code / THIS SIDE OUT), embossed arrow at the bottom, speckled plastic.
+     Label art: web/labels/<gold|silver>_<kr|en>.png is used when present (shown 557x492, the label's
+     inner size); otherwise a drawn label in the same layout. -->
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -11,274 +16,192 @@
     if (/[?&](ver|lang)=/.test(location.search)) location.replace('play.html' + location.search);
   </script>
   <style>
-    :root {
-      --bg: #031921;
-      --ink: #e6ecec;
-      --dim: #8fa3a6;
-    }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
     body {
-      background: radial-gradient(ellipse at 50% 0%, #0b3443 0%, var(--bg) 70%) fixed, var(--bg);
-      color: var(--ink);
+      background: #1d1f22;
+      color: #e8e8e8;
       font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 16px 48px;
+      padding: 36px 16px 48px;
       -webkit-tap-highlight-color: transparent;
     }
-    h1 {
-      margin: 0 0 6px;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-    }
-    p.sub { margin: 0 0 32px; color: var(--dim); font-size: 14px; }
-
+    h1 { margin: 0 0 28px; font-size: 20px; font-weight: 700; letter-spacing: 0.06em; color: #cfcfcf; }
     .shelf {
       display: grid;
       grid-template-columns: repeat(4, auto);
-      gap: 36px 28px;
+      gap: 32px 28px;
       justify-content: center;
     }
-    @media (max-width: 960px) { .shelf { grid-template-columns: repeat(2, auto); } }
-
-    /* ---- cartridge (Game Boy shape: 57 x 65 mm, cut top-right corner) ---- */
+    @media (max-width: 1000px) { .shelf { grid-template-columns: repeat(2, auto); } }
     .cart {
-      --w: min(200px, calc((100vw - 32px - 28px) / 2));
-      width: var(--w);
-      height: calc(var(--w) * 1.14);
-      position: relative;
       display: block;
-      text-decoration: none;
-      color: inherit;
-      filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
+      width: min(210px, calc((100vw - 32px - 28px) / 2));
       transition: transform 0.18s ease, filter 0.18s ease;
+      filter: drop-shadow(0 8px 10px rgba(0,0,0,0.55));
       outline: none;
     }
-    .cart:hover, .cart:focus-visible {
-      transform: translateY(-8px) rotate(-1deg);
-      filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.6));
-    }
-    .cart:focus-visible .shell { box-shadow: 0 0 0 3px #fff inset; }
+    .cart svg { display: block; width: 100%; height: auto; }
+    .cart:hover, .cart:focus-visible { transform: translateY(-8px); filter: drop-shadow(0 16px 16px rgba(0,0,0,0.6)); }
+    .cart:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 4px; }
     .cart.inserting { transform: translateY(-120vh); transition: transform 0.45s ease-in; }
-
-    .shell {
-      position: absolute;
-      inset: 0;
-      border-radius: 4% 0 7% 7% / 3.5% 0 6% 6%;
-      clip-path: polygon(0 0, 91% 0, 100% 8%, 100% 100%, 0 100%);
-      background: var(--plastic);
-      overflow: hidden;
-    }
-    /* translucent plastic: sheen + the board faintly visible through it */
-    .shell::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(115deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 28%),
-        linear-gradient(180deg, rgba(0,0,0,0) 72%, rgba(0,0,0,0.18) 100%),
-        radial-gradient(ellipse 30% 14% at 30% 88%, rgba(40,90,40,0.25), transparent),
-        radial-gradient(ellipse 22% 10% at 70% 86%, rgba(30,30,30,0.22), transparent);
-      pointer-events: none;
-    }
-    /* edge bevel */
-    .shell::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      box-shadow:
-        inset 2px 2px 2px rgba(255,255,255,0.55),
-        inset -3px -3px 4px rgba(0,0,0,0.28);
-      pointer-events: none;
-    }
-    .gold   { --plastic: linear-gradient(160deg, #f6dc7a 0%, #d8a92c 42%, #b6860f 100%); --groove: rgba(110,70,0,0.38); }
-    .silver { --plastic: linear-gradient(160deg, #f1f3f5 0%, #c3c8ce 45%, #979ea6 100%); --groove: rgba(50,58,68,0.35); }
-
-    /* grip ridges along the top */
-    .ridges {
-      position: absolute;
-      left: 6%; right: 12%; top: 3.5%;
-      height: 10%;
-      background: repeating-linear-gradient(180deg,
-        var(--groove) 0 2px, rgba(255,255,255,0.35) 2px 3px, transparent 3px 7px);
-      border-radius: 2px;
-    }
-    /* recessed label well */
-    .well {
-      position: absolute;
-      left: 7%; right: 7%; top: 17%;
-      height: 62%;
-      border-radius: 5px;
-      box-shadow: inset 2px 2px 3px rgba(0,0,0,0.35), inset -1px -1px 1px rgba(255,255,255,0.5);
-      padding: 3.5%;
-    }
-    .label {
-      position: relative;
-      width: 100%; height: 100%;
-      border-radius: 3px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background: var(--paper);
-      box-shadow: 0 1px 1px rgba(0,0,0,0.3);
-    }
-    .gold   .label { --paper: radial-gradient(circle at 50% 46%, #ffb547 0%, #d7461d 48%, #5a1306 100%); --title: #ffe27a; }
-    .silver .label { --paper: radial-gradient(circle at 50% 46%, #6fb4ff 0%, #1f4f9c 50%, #0b1a3c 100%); --title: #eef4ff; }
-    .label .series {
-      margin-top: 7%;
-      font-size: calc(var(--w) * 0.062);
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      color: #fff;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
-    }
-    .label svg { width: 48%; flex: 1 1 auto; min-height: 0; }
-    .label .title {
-      font-size: calc(var(--w) * 0.12);
-      font-weight: 900;
-      letter-spacing: 0.06em;
-      color: var(--title);
-      text-shadow: 0 2px 0 rgba(0,0,0,0.55), 0 0 6px rgba(0,0,0,0.35);
-      line-height: 1;
-      margin-bottom: 6%;
-    }
-    .label .region {
-      align-self: stretch;
-      text-align: center;
-      padding: 3% 0;
-      font-size: calc(var(--w) * 0.052);
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      background: rgba(0,0,0,0.55);
-      color: #fff;
-    }
-    /* embossed insert arrow */
-    .arrow {
-      position: absolute;
-      left: 50%; bottom: 7%;
-      width: 0; height: 0;
-      transform: translateX(-50%);
-      border-left: calc(var(--w) * 0.045) solid transparent;
-      border-right: calc(var(--w) * 0.045) solid transparent;
-      border-top: calc(var(--w) * 0.055) solid var(--groove);
-      filter: drop-shadow(1px 1px 0 rgba(255,255,255,0.45));
-    }
-    .caption {
-      margin-top: 12px;
-      text-align: center;
-      font-size: 13px;
-      color: var(--dim);
-    }
   </style>
 </head>
 <body>
   <h1>게임판 고르기</h1>
-  <p class="sub">칩을 누르면 시작합니다 · 판마다 세이브가 따로입니다</p>
+  <div class="shelf" id="shelf"></div>
 
-  <div class="shelf">
-    <div>
-      <a class="cart gold" href="play.html" aria-label="포켓몬스터 골드 한국어판">
-        <div class="shell">
-          <div class="ridges"></div>
-          <div class="well"><div class="label">
-            <div class="series">포켓몬스터</div>
-            <svg viewBox="-50 -50 100 100"><use href="#sun"/></svg>
-            <div class="title">골드</div>
-            <div class="region">한국어판</div>
-          </div></div>
-          <div class="arrow"></div>
-        </div>
-      </a>
-      <div class="caption">골드 · 한국어</div>
-    </div>
-    <div>
-      <a class="cart silver" href="play.html?ver=silver" aria-label="포켓몬스터 실버 한국어판">
-        <div class="shell">
-          <div class="ridges"></div>
-          <div class="well"><div class="label">
-            <div class="series">포켓몬스터</div>
-            <svg viewBox="-50 -50 100 100"><use href="#moon"/></svg>
-            <div class="title">실버</div>
-            <div class="region">한국어판</div>
-          </div></div>
-          <div class="arrow"></div>
-        </div>
-      </a>
-      <div class="caption">실버 · 한국어</div>
-    </div>
-    <div>
-      <a class="cart gold" href="play.html?lang=en" aria-label="Pokémon Gold, English">
-        <div class="shell">
-          <div class="ridges"></div>
-          <div class="well"><div class="label">
-            <div class="series">POKéMON</div>
-            <svg viewBox="-50 -50 100 100"><use href="#sun"/></svg>
-            <div class="title">GOLD</div>
-            <div class="region">ENGLISH</div>
-          </div></div>
-          <div class="arrow"></div>
-        </div>
-      </a>
-      <div class="caption">골드 · 영어</div>
-    </div>
-    <div>
-      <a class="cart silver" href="play.html?lang=en&amp;ver=silver" aria-label="Pokémon Silver, English">
-        <div class="shell">
-          <div class="ridges"></div>
-          <div class="well"><div class="label">
-            <div class="series">POKéMON</div>
-            <svg viewBox="-50 -50 100 100"><use href="#moon"/></svg>
-            <div class="title">SILVER</div>
-            <div class="region">ENGLISH</div>
-          </div></div>
-          <div class="arrow"></div>
-        </div>
-      </a>
-      <div class="caption">실버 · 영어</div>
-    </div>
-  </div>
-
-  <!-- label emblems (drawn for this page): sun with feather rays, crescent over waves -->
-  <svg width="0" height="0" style="position:absolute">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
-      <radialGradient id="sunCore"><stop offset="0" stop-color="#fff6c8"/><stop offset="1" stop-color="#ffc533"/></radialGradient>
-      <path id="feather" d="M0 -20 C 7 -30, 6 -40, 0 -46 C -6 -40, -7 -30, 0 -20 Z"/>
-      <g id="sun">
-        <g fill="#ffd45a" stroke="#8a2a08" stroke-width="1.5">
+      <!-- speckled plastic -->
+      <filter id="speckle" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="7" result="n"/>
+        <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 14 -10.2" result="dots0"/>
+        <feComponentTransfer in="dots0" result="dots"><feFuncA type="linear" slope="0.45"/></feComponentTransfer>
+        <feComposite in="dots" in2="SourceGraphic" operator="in" result="d"/>
+        <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="d"/></feMerge>
+      </filter>
+      <!-- recess: dark upper-left inner edge, light lower-right -->
+      <filter id="recess" x="-5%" y="-5%" width="110%" height="110%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="b"/>
+        <feOffset in="b" dx="4" dy="5" result="o"/>
+        <feComposite in="SourceAlpha" in2="o" operator="out" result="inner"/>
+        <feFlood flood-color="#000" flood-opacity="0.45"/>
+        <feComposite in2="inner" operator="in" result="shadow"/>
+        <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="shadow"/></feMerge>
+      </filter>
+      <path id="body" d="M18 4 H686 V40 Q686 46 692 46 H744 Q756 46 756 58 V846 Q756 866 736 866 H28 Q8 866 8 846 V14 Q8 4 18 4 Z"/>
+      <g id="ridges">
+        <rect x="0" y="0"   width="80" height="9" rx="4"/>
+        <rect x="0" y="24"  width="80" height="9" rx="4"/>
+        <rect x="0" y="48"  width="80" height="9" rx="4"/>
+        <rect x="0" y="72"  width="80" height="9" rx="4"/>
+        <rect x="0" y="96"  width="80" height="9" rx="4"/>
+      </g>
+      <radialGradient id="goldArt" cx="60%" cy="45%" r="75%">
+        <stop offset="0" stop-color="#d8d06a"/><stop offset="0.45" stop-color="#7f8a36"/><stop offset="1" stop-color="#3a4220"/>
+      </radialGradient>
+      <radialGradient id="silverArt" cx="60%" cy="45%" r="75%">
+        <stop offset="0" stop-color="#a9c7e6"/><stop offset="0.45" stop-color="#3f6797"/><stop offset="1" stop-color="#16243f"/>
+      </radialGradient>
+      <path id="feather" d="M0 -40 C 14 -60, 12 -82, 0 -96 C -12 -82, -14 -60, 0 -40 Z"/>
+      <g id="sunArt">
+        <g fill="#f7d23a" stroke="#a03a10" stroke-width="3">
           <use href="#feather"/><use href="#feather" transform="rotate(30)"/><use href="#feather" transform="rotate(60)"/>
           <use href="#feather" transform="rotate(90)"/><use href="#feather" transform="rotate(120)"/><use href="#feather" transform="rotate(150)"/>
           <use href="#feather" transform="rotate(180)"/><use href="#feather" transform="rotate(210)"/><use href="#feather" transform="rotate(240)"/>
           <use href="#feather" transform="rotate(270)"/><use href="#feather" transform="rotate(300)"/><use href="#feather" transform="rotate(330)"/>
         </g>
-        <circle r="19" fill="url(#sunCore)" stroke="#8a2a08" stroke-width="2"/>
+        <circle r="40" fill="#e8501c" stroke="#a03a10" stroke-width="4"/>
+        <circle r="26" fill="#ffd75a"/>
       </g>
-      <g id="moon">
-        <mask id="crescent"><rect x="-50" y="-50" width="100" height="100" fill="#fff"/><circle cx="12" cy="-16" r="22" fill="#000"/></mask>
-        <circle cx="0" cy="-8" r="26" fill="#eef4ff" stroke="#0b1a3c" stroke-width="2" mask="url(#crescent)"/>
-        <g fill="none" stroke="#bfe0ff" stroke-width="4" stroke-linecap="round">
-          <path d="M-40 30 q 10 -8 20 0 t 20 0 t 20 0 t 20 0"/>
-          <path d="M-32 42 q 8 -6 16 0 t 16 0 t 16 0 t 16 0" opacity="0.7"/>
+      <mask id="crescent"><rect x="-120" y="-120" width="240" height="240" fill="#fff"/><circle cx="26" cy="-30" r="56" fill="#000"/></mask>
+      <g id="moonArt">
+        <circle r="66" fill="#e9f1fb" stroke="#0e1e3a" stroke-width="4" mask="url(#crescent)"/>
+        <g fill="none" stroke="#cfe4ff" stroke-width="8" stroke-linecap="round">
+          <path d="M-100 82 q 25 -18 50 0 t 50 0 t 50 0 t 50 0"/>
+          <path d="M-80 108 q 20 -14 40 0 t 40 0 t 40 0 t 40 0" opacity="0.7"/>
         </g>
       </g>
     </defs>
   </svg>
 
   <script>
-    // short "insert" animation, then go
-    for (const a of document.querySelectorAll('.cart')) {
+    const CARTS = [
+      { ver: 'gold',   lang: 'kr', code: 'DMG-AAUK-KOR', series: '포켓몬스터', title: '골드 버전', name: '포켓몬스터 골드 한국어판' },
+      { ver: 'silver', lang: 'kr', code: 'DMG-AAXK-KOR', series: '포켓몬스터', title: '실버 버전', name: '포켓몬스터 실버 한국어판' },
+      { ver: 'gold',   lang: 'en', code: 'DMG-AAUE-USA', series: 'POKéMON',  title: 'GOLD VERSION',   name: 'Pokémon Gold, English' },
+      { ver: 'silver', lang: 'en', code: 'DMG-AAXE-USA', series: 'POKéMON',  title: 'SILVER VERSION', name: 'Pokémon Silver, English' },
+    ];
+    const PLASTIC = {
+      gold:   { base: '#d9b52c', hi: '#f1d65e', lo: '#9c7b0e', ink: '#b8961c' },
+      silver: { base: '#b6b9bd', hi: '#dfe2e5', lo: '#7d8186', ink: '#9a9da2' },
+    };
+
+    function cartSvg(c) {
+      const p = PLASTIC[c.ver];
+      const art = c.ver === 'gold' ? 'goldArt' : 'silverArt';
+      const emblem = c.ver === 'gold' ? 'sunArt' : 'moonArt';
+      const kr = c.lang === 'kr';
+      // wordmark embossed in the top band: light edge, dark edge, plastic face
+      const mark = (dx, dy, fill) => `
+        <text x="${383 + dx}" y="${152 + dy}" text-anchor="middle" fill="${fill}"
+              font-family="Arial Black, Arial, sans-serif" font-style="italic">
+          <tspan font-size="40" font-weight="700" letter-spacing="-1">Nintendo</tspan><tspan font-size="54" font-weight="900" dx="6">GAME BOY</tspan><tspan font-size="18" dy="-26" dx="4">TM</tspan>
+        </text>`;
+      return `
+<svg viewBox="0 0 764 870" xmlns="http://www.w3.org/2000/svg">
+  <g filter="url(#speckle)">
+    <use href="#body" fill="${p.base}"/>
+  </g>
+  <!-- edge light -->
+  <use href="#body" fill="none" stroke="${p.hi}" stroke-width="5" opacity="0.8" transform="translate(-1.5 -1.5)"/>
+  <use href="#body" fill="none" stroke="${p.lo}" stroke-width="3" opacity="0.7"/>
+
+  <!-- top band: recessed pill with the wordmark, grip ridges on both sides -->
+  <rect x="92" y="58" width="590" height="158" rx="78" fill="${p.base}" filter="url(#recess)"/>
+  <rect x="92" y="58" width="590" height="158" rx="78" fill="none" stroke="${p.lo}" stroke-width="2" opacity="0.6"/>
+  <g fill="${p.lo}" opacity="0.55">
+    <use href="#ridges" transform="translate(12 82)"/>
+    <use href="#ridges" transform="translate(676 82)"/>
+  </g>
+  <g fill="${p.hi}" opacity="0.7">
+    <use href="#ridges" transform="translate(12 86) scale(1 0.4)"/>
+    <use href="#ridges" transform="translate(676 86) scale(1 0.4)"/>
+  </g>
+  ${mark(-1.5, -1.5, p.hi)}${mark(2, 2, p.lo)}${mark(0, 0, p.ink)}
+
+  <!-- label well -->
+  <rect x="88" y="240" width="590" height="522" rx="10" fill="${p.base}" filter="url(#recess)"/>
+  <rect x="88" y="240" width="590" height="522" rx="10" fill="none" stroke="${p.lo}" stroke-width="2" opacity="0.6"/>
+
+  <!-- label -->
+  <g transform="translate(104 256)">
+    <rect width="557" height="492" fill="#c9cacb"/>
+    <rect x="58" width="441" height="492" fill="url(#${art})"/>
+    <text transform="translate(36 246) rotate(90)" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#3a3a3a" letter-spacing="1">${c.code}</text>
+    <text transform="translate(521 246) rotate(-90)" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#3a3a3a" letter-spacing="1">THIS SIDE OUT</text>
+    <use href="#${emblem}" transform="translate(300 268) scale(1.25)"/>
+    <text x="278" y="112" text-anchor="middle"
+          font-family="${kr ? "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif" : "'Arial Black', Arial, sans-serif"}"
+          font-size="${kr ? 76 : 84}" font-weight="900" fill="#ffd21f" stroke="#2a4fa8" stroke-width="12"
+          stroke-linejoin="round" paint-order="stroke" letter-spacing="${kr ? 0 : -2}">${c.series}</text>
+    <text x="278" y="462" text-anchor="middle"
+          font-family="${kr ? "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif" : "Impact, 'Arial Narrow', Arial, sans-serif"}"
+          font-size="${kr ? 40 : 42}" font-weight="700" fill="#fff" stroke="#000" stroke-width="5"
+          paint-order="stroke" letter-spacing="1">${c.title}</text>
+    <!-- real label scan, when present -->
+    <image href="labels/${c.ver}_${c.lang}.png" width="557" height="492" preserveAspectRatio="xMidYMid slice"
+           onerror="this.remove()"/>
+  </g>
+
+  <!-- embossed arrow -->
+  <path d="M330 784 H436 L383 838 Z" fill="${p.base}" filter="url(#recess)"/>
+  <path d="M330 784 H436 L383 838 Z" fill="none" stroke="${p.lo}" stroke-width="2" opacity="0.6"/>
+</svg>`;
+    }
+
+    const shelf = document.getElementById('shelf');
+    for (const c of CARTS) {
+      const q = new URLSearchParams();
+      if (c.lang === 'en') q.set('lang', 'en');
+      if (c.ver === 'silver') q.set('ver', 'silver');
+      const a = document.createElement('a');
+      a.className = 'cart';
+      a.href = 'play.html' + (q.toString() ? '?' + q : '');
+      a.setAttribute('aria-label', c.name);
+      a.innerHTML = cartSvg(c);
       a.addEventListener('click', (e) => {
         if (e.ctrlKey || e.metaKey || e.shiftKey) return;
         e.preventDefault();
         a.classList.add('inserting');
         setTimeout(() => { location.href = a.href; }, 380);
       });
+      shelf.appendChild(a);
     }
-    // coming back with the browser's back button: show the shelf again
+    // back button: show the shelf again
     addEventListener('pageshow', () => {
       for (const a of document.querySelectorAll('.cart.inserting')) a.classList.remove('inserting');
     });
