@@ -344,7 +344,7 @@ JohtoGrassWildMons:
 	; morn
 	db 10, CATERPIE
 	db 10, METAPOD
-	db 12, CATERPIE
+	db 12, WEEDLE
 	db 12, CUBONE
 	db 10, CUBONE
 	db 14, PINSIR
@@ -361,7 +361,7 @@ JohtoGrassWildMons:
 	; morn
 	db 10, WEEDLE
 	db 10, KAKUNA
-	db 12, WEEDLE
+	db 12, CATERPIE
 	db 12, CUBONE
 	db 10, CUBONE
 	db 14, PINSIR
@@ -531,7 +531,7 @@ JohtoGrassWildMons:
 	db 8, MEOWTH
 	db 9, GRIMER
 	db 6, CHANSEY
-	db 6, RATTATA
+	db 6, SANDSHREW
 	; day
 	db 8, GEODUDE
 	db 8, RATTATA
@@ -539,7 +539,7 @@ JohtoGrassWildMons:
 	db 8, MEOWTH
 	db 9, GRIMER
 	db 6, CHANSEY
-	db 6, RATTATA
+	db 6, SANDSHREW
 	; nite
 	db 8, GEODUDE
 	db 8, RATTATA
@@ -547,7 +547,7 @@ JohtoGrassWildMons:
 	db 8, MEOWTH
 	db 9, GRIMER
 	db 6, CHANSEY
-	db 6, RATTATA
+	db 6, SANDSHREW
 	ENDC
 	end_grass_wildmons
 
@@ -641,14 +641,14 @@ JohtoGrassWildMons:
 	; morn
 	db 5, CATERPIE
 	db 6, METAPOD
-	db 6, CATERPIE
+	db 6, WEEDLE
 	db 5, VOLTORB
 	db 5, DRATINI
 	db 6, NIDORAN_F
 	db 6, PARAS
 	; day
 	db 5, CATERPIE
-	db 6, CATERPIE
+	db 6, WEEDLE
 	db 5, METAPOD
 	db 6, VOLTORB
 	db 5, DRATINI
@@ -658,14 +658,14 @@ JohtoGrassWildMons:
 	; morn
 	db 5, WEEDLE
 	db 6, KAKUNA
-	db 6, WEEDLE
+	db 6, CATERPIE
 	db 5, VOLTORB
 	db 5, DRATINI
 	db 6, NIDORAN_F
 	db 6, PARAS
 	; day
 	db 5, WEEDLE
-	db 6, WEEDLE
+	db 6, CATERPIE
 	db 5, KAKUNA
 	db 6, VOLTORB
 	db 5, DRATINI
@@ -1604,15 +1604,15 @@ JohtoGrassWildMons:
 	; morn
 	db 2, PIDGEY
 	db 3, CATERPIE
-	db 4, CATERPIE
+	db 4, LEDYBA
 	db 4, CATERPIE
 	db 4, GROWLITHE
 	db 4, VULPIX
-	db 4, PIDGEY
+	db 4, WEEDLE
 	; day
 	db 2, PIDGEY
 	db 3, CATERPIE
-	db 4, PIDGEY
+	db 4, WEEDLE
 	db 4, CATERPIE
 	db 4, GROWLITHE
 	db 5, VULPIX
@@ -1637,7 +1637,7 @@ JohtoGrassWildMons:
 	; day
 	db 2, PIDGEY
 	db 3, WEEDLE
-	db 4, PIDGEY
+	db 4, METAPOD
 	db 4, CATERPIE
 	db 4, GROWLITHE
 	db 5, VULPIX
@@ -1645,7 +1645,7 @@ JohtoGrassWildMons:
 	; nite
 	db 2, HOOTHOOT
 	db 3, RATTATA
-	db 4, HOOTHOOT
+	db 4, SPINARAK
 	db 4, CATERPIE
 	db 4, GROWLITHE
 	db 4, VULPIX
@@ -1704,7 +1704,7 @@ JohtoGrassWildMons:
 	db 5, CHARMANDER
 	db 5, CUBONE
 	db 5, DODUO
-	db 5, HOOTHOOT
+	db 5, SPINARAK
 	ENDC
 	end_grass_wildmons
 
@@ -1726,7 +1726,7 @@ JohtoGrassWildMons:
 	db 6, ODDISH
 	db 6, DRATINI
 	db 8, CHARMANDER
-	db 8, RATTATA
+	db 8, EKANS
 	; nite
 	db 6, WOOPER
 	db 4, RATTATA
@@ -1781,11 +1781,11 @@ JohtoGrassWildMons:
 	db 6, ZUBAT
 	db 8, METAPOD
 	db 8, DRATINI
-	db 8, RATTATA
+	db 8, EKANS
 	; nite
 	db 6, ZUBAT
 	db 7, RATTATA
-	db 6, RATTATA
+	db 6, EKANS
 	db 6, ZUBAT
 	db 8, METAPOD
 	db 8, DRATINI
@@ -1962,7 +1962,7 @@ JohtoGrassWildMons:
 	; morn
 	db 13, PIDGEY
 	db 15, STANTLER
-	db 15, PIDGEY
+	db 15, LEDYBA
 	db 14, KOFFING
 	db 15, SPEAROW
 	db 15, CUBONE
@@ -1970,7 +1970,7 @@ JohtoGrassWildMons:
 	; day
 	db 13, PIDGEY
 	db 15, STANTLER
-	db 15, PIDGEY
+	db 15, VULPIX
 	db 14, KOFFING
 	db 15, SPEAROW
 	db 16, CUBONE
@@ -1995,7 +1995,7 @@ JohtoGrassWildMons:
 	; day
 	db 13, PIDGEY
 	db 15, STANTLER
-	db 15, PIDGEY
+	db 15, GROWLITHE
 	db 14, KOFFING
 	db 15, SPEAROW
 	db 16, CUBONE
@@ -2003,7 +2003,7 @@ JohtoGrassWildMons:
 	; nite
 	db 13, HOOTHOOT
 	db 15, STANTLER
-	db 15, HOOTHOOT
+	db 15, SPINARAK
 	db 14, KOFFING
 	db 15, SPEAROW
 	db 15, CUBONE
@@ -2153,7 +2153,7 @@ JohtoGrassWildMons:
 	; morn
 	db 13, MAREEP
 	db 14, SPEAROW
-	db 15, MAREEP
+	db 15, MANKEY
 	db 16, KOFFING
 	db 15, LICKITUNG
 	db 17, GASTLY
@@ -2161,7 +2161,7 @@ JohtoGrassWildMons:
 	; day
 	db 13, MAREEP
 	db 14, SPEAROW
-	db 15, MAREEP
+	db 15, MANKEY
 	db 16, KOFFING
 	db 15, LICKITUNG
 	db 17, GASTLY
@@ -2169,7 +2169,7 @@ JohtoGrassWildMons:
 	; nite
 	db 13, MAREEP
 	db 14, ZUBAT
-	db 15, MAREEP
+	db 15, MANKEY
 	db 16, KOFFING
 	db 15, LICKITUNG
 	db 17, GASTLY
@@ -2243,7 +2243,7 @@ JohtoGrassWildMons:
 	db 20, MAGNEMITE
 	db 25, SCYTHER
 	db 27, GOLBAT
-	db 27, GRAVELER
+	db 27, SKARMORY
 	; day
 	db 23, GEODUDE
 	db 23, GRAVELER
@@ -2251,7 +2251,7 @@ JohtoGrassWildMons:
 	db 20, MAGNEMITE
 	db 25, SCYTHER
 	db 27, GOLBAT
-	db 27, GRAVELER
+	db 27, SKARMORY
 	; nite
 	db 23, GEODUDE
 	db 23, GRAVELER
@@ -2259,12 +2259,12 @@ JohtoGrassWildMons:
 	db 20, MAGNEMITE
 	db 25, SCYTHER
 	db 27, GOLBAT
-	db 27, GRAVELER
+	db 27, SKARMORY
 	ELIF DEF(_SILVER)
 	; morn
 	db 23, GEODUDE
 	db 23, GRAVELER
-	db 24, GRAVELER
+	db 24, GLIGAR
 	db 20, MAGNEMITE
 	db 25, SCYTHER
 	db 27, GOLBAT
@@ -2272,7 +2272,7 @@ JohtoGrassWildMons:
 	; day
 	db 23, GEODUDE
 	db 23, GRAVELER
-	db 24, GRAVELER
+	db 24, GLIGAR
 	db 20, MAGNEMITE
 	db 25, SCYTHER
 	db 27, GOLBAT
@@ -2280,7 +2280,7 @@ JohtoGrassWildMons:
 	; nite
 	db 23, GEODUDE
 	db 23, GRAVELER
-	db 24, GRAVELER
+	db 24, GLIGAR
 	db 20, MAGNEMITE
 	db 25, SCYTHER
 	db 27, GOLBAT

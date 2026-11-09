@@ -11,6 +11,8 @@ and map list stay as in the original game.
 - Grass slots never get a Water-primary species, water slots only get Water types.
 - Legendaries, mythicals and Unown are excluded (Unown needs its letter logic).
 - Choices are seeded by map and slot, so reruns give the same tables.
+- Gold/Silver exclusives (merge_versions): spare slots (a species already listed earlier in the same
+  table — the game picks every species with the same probability) get the other version's species.
 
 Tables are always rebuilt from the original files at --base-ref, so rerunning
 does not stack changes.
@@ -134,6 +136,60 @@ def mix_file(text, region_name, kind, pool_args):
     return "".join(out)
 
 
+def merge_versions(text, kind):
+    """mod 2nd stage (user request 2026-11-09): the game now picks every species in a table with the same
+    probability, so a slot whose species already appears earlier in the same table is spare. In maps where
+    Gold and Silver differ (IF DEF(_GOLD) / ELIF DEF(_SILVER) blocks), spare slots of each version get the
+    other version's exclusive species, so both versions' species appear in either game. The mixed
+    other-region slots (GRASS_SLOTS / WATER_SLOTS) are left as they are (user decision).
+    Returns (new text, list of (map, version, species that did not fit))."""
+    n = 7 if kind == "grass" else 3
+    mixed = GRASS_SLOTS if kind == "grass" else WATER_SLOTS
+    lines = text.splitlines(keepends=True)
+    slot_re = re.compile(r"(\tdb )(\d+), (\w+)(.*)", re.S)
+    blocks, mapname, cur = [], None, None   # (map, gold line indices, silver line indices)
+    for i, line in enumerate(lines):
+        m = re.match(r"\tdef_\w+_wildmons (\w+)", line)
+        if m:
+            mapname = m.group(1)
+        s = line.strip()
+        if s == "IF DEF(_GOLD)":
+            cur = [mapname, [], []]
+            which = 1
+        elif s == "ELIF DEF(_SILVER)" and cur:
+            which = 2
+        elif s == "ENDC" and cur:
+            blocks.append(cur)
+            cur = None
+        elif cur and slot_re.match(line):
+            cur[which].append(i)
+    short = []
+    for mapname, gold, silver in blocks:
+        if len(gold) != len(silver) or len(gold) % n:
+            continue
+        for t in range(0, len(gold), n):
+            g, s = gold[t:t + n], silver[t:t + n]
+            sp = lambda idx: slot_re.match(lines[idx]).group(3)
+            gs, ss = [sp(i) for i in g], [sp(i) for i in s]
+            for mine, theirs, name in ((g, ss, "gold"), (s, gs, "silver")):
+                own = [sp(i) for i in mine]
+                extra = [x for k, x in enumerate(dict.fromkeys(theirs)) if x not in own
+                         and theirs.index(x) not in mixed]
+                seen, spare = set(), []
+                for k, x in enumerate(own):
+                    if k in mixed:
+                        continue
+                    if x in seen:
+                        spare.append(k)
+                    seen.add(x)
+                for k, x in zip(spare, extra):
+                    m = slot_re.match(lines[mine[k]])
+                    lines[mine[k]] = f"{m.group(1)}{m.group(2)}, {x}{m.group(4)}"
+                if len(extra) > len(spare):
+                    short.append((mapname, name, extra[len(spare):]))
+    return "".join(lines), short
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[1]))
@@ -148,8 +204,11 @@ def main():
     for path, (region_name, kind) in FILES.items():
         text = git_show(repo, args.base_ref, path)
         mixed = mix_file(text, region_name, kind, (bases, region, types, evos))
+        mixed, short = merge_versions(mixed, kind)
         (repo / path).write_text(mixed, encoding="utf-8", newline="\n")
-        print(f"{path}: mixed {region_name} species into {kind} slots")
+        print(f"{path}: mixed {region_name} species into {kind} slots, merged Gold/Silver exclusives")
+        for mapname, version, left in short:
+            print(f"  {mapname} {version}: no spare slot for {', '.join(left)}")
 
 
 if __name__ == "__main__":

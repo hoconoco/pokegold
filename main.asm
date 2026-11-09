@@ -377,6 +377,11 @@ INCLUDE "engine/events/catch_tutorial_input.asm"
 INCLUDE "engine/pokegear/townmap_convertlinebreakcharacters.asm"
 
 
+SECTION "Elm Trade Evolution", ROMX ; mod
+
+INCLUDE "engine/events/elm_trade_evo.asm"
+
+
 SECTION "Credits Strings", ROMX
 
 INCLUDE "data/credits_strings.asm"

@@ -288,24 +288,53 @@ ChooseWildEncounter:
 .watermon
 ; hl contains the pointer to the wild mon data, let's save that to the stack
 	push hl
-.randomloop
+; mod: every species in the table is equally likely — pick a slot evenly,
+; then keep it with probability 1/(number of slots holding that species)
+.pick_slot
+	call CheckOnWater
+	ld c, NUM_WATERMON
+	jr z, .got_slot_count
+	ld c, NUM_GRASSMON
+.got_slot_count
 	call Random
-	cp 100
-	jr nc, .randomloop
-	inc a ; 1 <= a <= 100
-	ld b, a
-	ld h, d
-	ld l, e
-; This next loop chooses which mon to load up.
-.prob_bracket_loop
-	ld a, [hli]
-	cp b
-	jr nc, .got_it
+	and 7
+	cp c
+	jr nc, .got_slot_count
+	ld e, a
+	ld d, 0
+	pop hl
+	push hl
+	push de
+	push hl
+	add hl, de
+	add hl, de
 	inc hl
-	jr .prob_bracket_loop
-
-.got_it
-	ld c, [hl]
+	ld e, [hl] ; species of the picked slot
+	pop hl
+	inc hl
+	ld d, 0
+.count_loop
+	ld a, [hli]
+	cp e
+	jr nz, .count_next
+	inc d
+.count_next
+	inc hl
+	dec c
+	jr nz, .count_loop
+	call Random
+.mod_loop
+	cp d
+	jr c, .mod_done
+	sub d
+	jr .mod_loop
+.mod_done
+	and a
+	pop de
+	jr nz, .pick_slot
+	ld a, e
+	add a
+	ld c, a
 	ld b, 0
 	pop hl
 	add hl, bc ; this selects our mon

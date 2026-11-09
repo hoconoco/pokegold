@@ -47,8 +47,17 @@ ElmsLabWalkUpToElmScript:
 	setscene SCENE_ELMSLAB_CANT_LEAVE
 	end
 
+ProfElmTradeEvolvedScript: ; mod: after Elm's trade evolution
+	reloadmap
+	end
+
 ProfElmScript:
 	faceplayer
+	checkflag ENGINE_RISINGBADGE ; mod: trade evolution after the 8th Johto badge
+	iffalse .NoTradeEvolution
+	callasm ElmTradeEvolution
+	iftrue ProfElmTradeEvolvedScript
+.NoTradeEvolution:
 	opentext
 	checkevent EVENT_GOT_SS_TICKET_FROM_ELM
 	iftrue ElmCheckMasterBall

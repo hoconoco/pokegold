@@ -6897,6 +6897,9 @@ GiveExperiencePoints:
 	ld a, [wEnemyMonLevel]
 	ldh [hMultiplier], a
 	call Multiply
+	ld a, 5 ; mod: 5x experience
+	ldh [hMultiplier], a
+	call Multiply
 	ld a, 7
 	ldh [hDivisor], a
 	ld b, 4

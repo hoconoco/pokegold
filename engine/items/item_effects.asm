@@ -242,9 +242,7 @@ PokeBallEffect:
 	ld a, [wBattleType]
 	cp BATTLETYPE_TUTORIAL
 	jp z, .catch_without_fail
-	ld a, [wCurItem]
-	cp MASTER_BALL
-	jp z, .catch_without_fail
+	jp .catch_without_fail ; mod: every ball always catches
 	ld a, [wCurItem]
 	ld c, a
 	ld hl, BallMultiplierFunctionTable

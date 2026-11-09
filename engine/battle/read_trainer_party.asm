@@ -308,8 +308,11 @@ ComputeTrainerReward:
 	ld a, [wCurPartyLevel]
 	ld [hl], a ; hMultiplier
 	call Multiply
+	ld a, 5 ; mod: 5x prize money
+	ldh [hMultiplier], a
+	call Multiply
 	ld hl, wBattleReward
-	xor a
+	ldh a, [hProduct + 1]
 	ld [hli], a
 	ldh a, [hProduct + 2]
 	ld [hli], a
