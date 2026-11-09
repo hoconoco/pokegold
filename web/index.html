@@ -3,8 +3,10 @@
      The shell follows a real Game Boy cartridge (DMG shape, as Gold/Silver shipped): stepped top-right
      corner, recessed top band with the embossed wordmark and grip ridges on both sides, recessed label
      with grey side strips (product code / THIS SIDE OUT), embossed arrow at the bottom, speckled plastic.
-     Photo: web/carts/<gold|silver>_<kr|en>.png (the user's own photo of the cartridge front, cropped to the
-     cartridge, kept out of git) replaces the drawing when present, cut to the same outline. -->
+     Each cartridge stands behind its game box (pack); hovering lifts the cartridge out, clicking sends it up.
+     Photos (the user's own files, kept out of git): web/boxes/<gold|silver>_<kr|en>.png (box, transparent
+     background) and web/carts/<gold|silver>_<kr|en>.png (cartridge front, cut to the outline) replace the
+     drawings when present. -->
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -36,18 +38,77 @@
       justify-content: center;
     }
     @media (max-width: 1000px) { .shelf { grid-template-columns: repeat(2, auto); } }
-    .cart {
+    .slot {
+      /* game box (pack) standing on the shelf; the cartridge waits behind it and comes out the top */
+      --w: min(220px, calc((100vw - 32px - 28px) / 2));
+      position: relative;
       display: block;
-      width: min(210px, calc((100vw - 32px - 28px) / 2));
-      transition: transform 0.18s ease, filter 0.18s ease;
-      filter: drop-shadow(0 8px 10px rgba(0,0,0,0.55));
+      width: var(--w);
+      height: calc(var(--w) * 1.18);
       outline: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .slot:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 8px; }
+    .cart {
+      position: absolute;
+      left: 22%;
+      bottom: 22%;
+      width: 64%;
+      z-index: 0;
+      transition: transform 0.25s ease;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45));
     }
     .cart svg { display: block; width: 100%; height: auto; }
     .cart img { display: block; width: 100%; aspect-ratio: 764 / 870; object-fit: cover; clip-path: url(#cartClip); }
-    .cart:hover, .cart:focus-visible { transform: translateY(-8px); filter: drop-shadow(0 16px 16px rgba(0,0,0,0.6)); }
-    .cart:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 4px; }
-    .cart.inserting { transform: translateY(-120vh); transition: transform 0.45s ease-in; }
+    .box {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: calc(var(--w) * 1.0);
+      z-index: 1;
+      transition: transform 0.25s ease;
+      filter: drop-shadow(0 12px 14px rgba(0,0,0,0.6));
+    }
+    .box img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .slot:hover .cart, .slot:focus-visible .cart { transform: translateY(-38%); }
+    .slot:hover .box, .slot:focus-visible .box { transform: translateY(2%); }
+    .slot.inserting .cart { transform: translateY(-150vh); transition: transform 0.55s cubic-bezier(.5,0,.9,.4); }
+
+    /* drawn box when there is no photo: left spine + front face, slight perspective like a shelf photo */
+    .drawn { position: absolute; inset: 4% 0 3% 0; }
+    .drawn .spine {
+      position: absolute; left: 0; top: 3%; bottom: 0; width: 9%;
+      background: var(--box-dark);
+      transform: skewY(-12deg); transform-origin: right top;
+      box-shadow: inset -2px 0 3px rgba(0,0,0,0.35);
+    }
+    .drawn .front {
+      position: absolute; left: 9%; right: 0; top: 0; bottom: 0;
+      background: var(--box-face);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), inset 0 -10px 18px rgba(0,0,0,0.18);
+      display: flex; flex-direction: column; align-items: center; overflow: hidden;
+    }
+    .drawn .band {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 15%;
+      background: #161616;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .drawn .band span {
+      transform: rotate(-90deg); white-space: nowrap;
+      font: 800 calc(var(--w) * 0.06) "Arial Black", Arial, sans-serif; letter-spacing: 0.04em; color: #f2f2f2;
+    }
+    .drawn .t1 {
+      margin: 8% 0 0 15%;
+      text-align: center;
+      font: 900 calc(var(--w) * 0.105) "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      color: #e8361c; -webkit-text-stroke: calc(var(--w) * 0.006) #5a1004;
+      text-shadow: 0 2px 0 #ffe9a0; letter-spacing: -0.02em; line-height: 1;
+    }
+    .drawn .t1 small { display: block; margin-top: 0.15em; font-size: 0.6em; letter-spacing: 0.08em; color: var(--accent); -webkit-text-stroke: 0; text-shadow: none; }
+    .drawn svg.emblem { width: 58%; margin: 2% 0 0 15%; flex: 1 1 auto; min-height: 0; }
+    .drawn .t2 { margin: 0 0 5% 15%; font: 700 calc(var(--w) * 0.038) "Malgun Gothic", sans-serif; color: #3a2a10; }
+    .drawn.gold   { --box-face: linear-gradient(150deg, #fff3b8 0%, #f0cf55 35%, #d9a92a 70%, #b68514 100%); --box-dark: #9c7310; --accent: #b23a10; }
+    .drawn.silver { --box-face: linear-gradient(150deg, #ffffff 0%, #dfe4ea 35%, #b9c0c8 70%, #959ca5 100%); --box-dark: #7c838c; --accent: #24508f; }
+    .drawn.silver .t2 { color: #1f2a38; }
   </style>
 </head>
 <body>
@@ -185,32 +246,56 @@
 </svg>`;
     }
 
+    function boxHtml(c) {
+      const kr = c.lang === 'kr';
+      const t1 = kr ? `포켓몬스터<small>${c.ver === 'gold' ? '골드' : '실버'}</small>`
+                    : `POKéMON<small>${c.ver === 'gold' ? 'GOLD' : 'SILVER'}</small>`;
+      const t2 = kr ? '게임보이 컬러 전용·게임보이 대응' : 'GAME BOY COLOR · GAME BOY';
+      return `<div class="drawn ${c.ver}">
+        <div class="spine"></div>
+        <div class="front">
+          <div class="band"><span>GAME BOY COLOR</span></div>
+          <div class="t1">${t1}</div>
+          <svg class="emblem" viewBox="-50 -50 100 100"><use href="#${c.ver === 'gold' ? 'sunArt' : 'moonArt'}" transform="scale(0.42)"/></svg>
+          <div class="t2">${t2}</div>
+        </div>
+      </div>`;
+    }
+
     const shelf = document.getElementById('shelf');
     for (const c of CARTS) {
       const q = new URLSearchParams();
       if (c.lang === 'en') q.set('lang', 'en');
       if (c.ver === 'silver') q.set('ver', 'silver');
       const a = document.createElement('a');
-      a.className = 'cart';
+      a.className = 'slot';
       a.href = 'play.html' + (q.toString() ? '?' + q : '');
       a.setAttribute('aria-label', c.name);
-      a.innerHTML = cartSvg(c);
-      // the user's own cartridge photo, when present, replaces the drawing
-      const img = new Image();
-      img.alt = c.name;
-      img.onload = () => a.replaceChildren(img);
-      img.src = `carts/${c.ver}_${c.lang}.png`;
+      a.innerHTML = '<div class="cart"></div><div class="box"></div>';
+      const cart = a.querySelector('.cart');
+      cart.innerHTML = cartSvg(c);
+      const box = a.querySelector('.box');
+      box.innerHTML = boxHtml(c);
+      // the user's own photos, when present, replace the drawings
+      const cimg = new Image();
+      cimg.alt = '';
+      cimg.onload = () => cart.replaceChildren(cimg);
+      cimg.src = `carts/${c.ver}_${c.lang}.png`;
+      const bimg = new Image();
+      bimg.alt = c.name;
+      bimg.onload = () => box.replaceChildren(bimg);
+      bimg.src = `boxes/${c.ver}_${c.lang}.png`;
       a.addEventListener('click', (e) => {
         if (e.ctrlKey || e.metaKey || e.shiftKey) return;
         e.preventDefault();
         a.classList.add('inserting');
-        setTimeout(() => { location.href = a.href; }, 380);
+        setTimeout(() => { location.href = a.href; }, 480);
       });
       shelf.appendChild(a);
     }
     // back button: show the shelf again
     addEventListener('pageshow', () => {
-      for (const a of document.querySelectorAll('.cart.inserting')) a.classList.remove('inserting');
+      for (const a of document.querySelectorAll('.slot.inserting')) a.classList.remove('inserting');
     });
   </script>
 </body>

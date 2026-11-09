@@ -33,5 +33,6 @@
 *.sa*
 *.sg1
 
-# web shelf: cartridge photos (label art is Nintendo's), deployed but not committed
+# web shelf: cartridge and box photos (the art is Nintendo's), deployed but not committed
 web/carts/
+web/boxes/
