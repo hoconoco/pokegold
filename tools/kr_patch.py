@@ -13,15 +13,22 @@ Patches:
 
 New routines go into the zero-filled tail of the bank that calls them.
 
+- 2nd stage: 5x exp and prize money, every ball catches, even species odds in grass/water, the other
+  version's exclusives in spare wild slots, Prof. Elm trade evolution after the 8th badge (no new text —
+  the Korean text encoding is not mapped yet). Korean Silver (AAXK) uses the same code addresses.
+
 Usage: python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out pokegold_kr.gbc
+       python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr_silver.gbc --out pokesilver_kr.gbc
 """
 
 import argparse
 import hashlib
 import re
+import subprocess
 from pathlib import Path
 
-BASE_SHA1 = "c0ff3999e1093e1af59ef3eea3f1bfd7c1f18a65"
+BASE_SHA1 = {"c0ff3999e1093e1af59ef3eea3f1bfd7c1f18a65": "GOLD",     # POKEMON_GLD AAUK
+             "cb22d7e03a74dc3a563fde6be8626626b2b392e7": "SILVER"}   # POKEMON_SLV AAXK (user-provided 2026-11-09)
 
 # Korean ROM addresses (read from the code at the matched patch points)
 KR = dict(
@@ -322,6 +329,182 @@ def free_tail(d, bank):
     return len(blk) - len(bytes(blk).rstrip(b"\x00"))
 
 
+# ---- mod 2nd stage (user request 2026-11-09): 5x exp / prize money, always-catch, even species odds,
+# both versions' exclusives, Prof. Elm trade evolution. Korean Gold and Silver share every code address below
+# (found by wildcard patterns, each matching exactly once in both ROMs).
+KR2 = dict(
+    Multiply=0x325C, Random=0x313B, hProduct=0xFFB5, hMultiplier=0xFFB9, wBattleReward=0xCB6C,
+    GetFarByte=0x31D0, GetFarWord=0x31E4, GetPartyParamLocation=0x3B07, PlaySFX=0x3DEF, WaitSFX=0x3E21,
+    SelectMonFromParty=(0x14, 0x4000), EvolvePokemon=(0x10, 0x5E0B), EvosAttacksPointers=(0x10, 0x63ED),
+    wCurPartySpecies=0xD0C0, wScriptVar=0xD230, wLinkMode=0xD0FD,
+)
+EVOLVE_TRADE, EVOLVE_STAT, MON_ITEM, SFX_WRONG, LINK_TRADECENTER = 3, 5, 1, 0x19, 2
+ENGINE_RISINGBADGE = 0x21
+
+
+def alloc_tail(r, name, bank, code_fn, margin=4):
+    """New code in the zero tail of any bank (keeps a small margin after the last non-zero byte)."""
+    r.free.setdefault(bank, bank * 0x4000 + 0x4000 - free_tail(r.d, bank) + margin)
+    return r.alloc(name, bank, code_fn)
+
+
+def patch_exp5(r):
+    m, k = KR2["Multiply"], KR2
+    off = r.find("exp x5", "FA ?? ?? E0 ?? CD 5C 32 3E 07 E0 ?? 06 04 CD ?? ??")
+    new = r.alloc("Exp x5", 0x0F, lambda org: bytes([0xCD, *lo_hi(m), 0x3E, 0x05, 0xE0, k["hMultiplier"] & 0xFF,
+                                                     0xC3, *lo_hi(m)]))
+    r.put("exp x5", off + 5, [0xCD, *lo_hi(m)], [0xCD, *lo_hi(new)])
+
+
+def patch_money5(r):
+    m, k = KR2["Multiply"], KR2
+    off = r.find("prize x5", "21 ?? FF AF 22 22 22 FA ?? ?? 22 FA ?? ?? 77 CD 5C 32 21 ?? ?? AF 22 F0 ?? 22 F0 ?? 77 C9")
+    p = k["hProduct"] & 0xFF
+    new = alloc_tail(r, "Prize x5", off // 0x4000, lambda org: bytes([
+        0xCD, *lo_hi(m), 0x3E, 0x05, 0xE0, k["hMultiplier"] & 0xFF, 0xCD, *lo_hi(m),
+        0x21, *lo_hi(k["wBattleReward"]), 0xF0, p + 1, 0x22, 0xF0, p + 2, 0x22, 0xF0, p + 3, 0x77, 0xC9]))
+    r.put("prize x5", off + 15, r.d[off + 15:off + 30], [0xC3, *lo_hi(new)])
+
+
+def patch_catch(r):
+    off = r.find("catch", "FA ?? ?? FE 01 CA ?? ?? FA ?? ?? 4F 21")
+    r.put("catch: always", off + 3, r.d[off + 3:off + 8], [0xC3, r.d[off + 6], r.d[off + 7]])
+
+
+def patch_even_odds(r):
+    """ChooseWildEncounter: the probability bracket loop is replaced by an even species pick
+    (same logic as the English engine/overworld/wildmons.asm). Bank $0A has only 56 free bytes,
+    so the first part stays in place of the old loop (21 bytes) and jumps to the rest in the tail.
+    Water tables start with 60 (grass with 30) — that tells the slot count without CheckOnWater."""
+    off = r.find("even odds", "E5 CD ?? ?? FE 64 30 F9 3C 47 62 6B 2A B8 30 03 23 18 F9 4E 06 00 E1")
+    site, back, rnd = gb_addr(off + 1), gb_addr(off + 22), KR2["Random"]
+    tail = {}
+
+    def rest(org):
+        return asm([
+            0xF8, 0x00, 0x2A, 0x66, 0x6F,                    # ld hl,sp+0 (wild data pushed) / ld a,[hli] / ld h,[hl] / ld l,a
+            0xE5, 0x16, 0x00, 0x19, 0x19, 0x23, 0x7E, 0xE1,  # push hl / ld d,0 / add hl,de x2 / inc hl / ld a,[hl] / pop hl
+            0xD5, 0x5F, 0x16, 0x00, 0x48, 0x23,              # push de / ld e,a / ld d,0 / ld c,b / inc hl
+            "cnt:", 0x2A, 0xBB, ("jr", 0x20, "nx"), 0x14,
+            "nx:", 0x23, 0x0D, ("jr", 0x20, "cnt"),
+            0xCD, *lo_hi(rnd),
+            "mod:", 0xBA, ("jr", 0x38, "md"), 0x92, ("jr", 0x18, "mod"),
+            "md:", 0xA7, 0xD1, 0xC2, *lo_hi(site + 9),       # and a / pop de / jp nz, .rand
+            0x7B, 0x87, 0x4F, 0x06, 0x00, 0xC3, *lo_hi(back),
+        ], org)
+    t = alloc_tail(r, "even odds (rest)", off // 0x4000, rest)
+    first = asm([
+        0x1A, 0xFE, 60, 0x06, 0x03, ("jr", 0x28, "go"), 0x06, 0x07,
+        "go:", 0xCD, *lo_hi(rnd), 0xE6, 0x07, 0xB8, ("jr", 0x30, "go"),
+        0x5F, 0xC3, *lo_hi(t),
+    ], site)
+    assert len(first) == 21 and first[9] == 0xCD, "even odds: .rand must be at site+9"
+    r.put("even odds", off + 1, r.d[off + 1:off + 22], first)
+
+
+def patch_elm_trade_evo(r):
+    k = KR2
+    bank = 0x60
+    elm = r.find("Elm script", "91 6B 48 31 24 00 09 ?? ?? 31 44 00 09 ?? ?? 31 7C 00 09 ?? ?? 34 21 00 09") + 1
+    assert elm // 0x4000 == bank
+    sel_b, sel = k["SelectMonFromParty"]
+    evo_b, evo = k["EvolvePokemon"]
+    ptr_b, ptrs = k["EvosAttacksPointers"]
+    routine = alloc_tail(r, "ElmTradeEvolution", bank, lambda org: asm([
+        0xAF, 0xEA, *lo_hi(k["wScriptVar"]),
+        0x3E, sel_b, 0x21, *lo_hi(sel), 0xCF, 0xD8,                  # farcall SelectMonFromParty / ret c
+        0xFA, *lo_hi(k["wCurPartySpecies"]), 0xFE, EGG, ("jr", 0x28, "cannot"),
+        0x3D, 0x4F, 0x06, 0x00, 0x21, *lo_hi(ptrs), 0x09, 0x09, 0x3E, ptr_b, 0xCD, *lo_hi(k["GetFarWord"]),
+        "loop:", 0x3E, ptr_b, 0xCD, *lo_hi(k["GetFarByte"]), 0x23, 0xA7, ("jr", 0x28, "cannot"),
+        0xFE, EVOLVE_TRADE, ("jr", 0x28, "trade"), 0xFE, EVOLVE_STAT, ("jr", 0x20, "next"), 0x23,
+        "next:", 0x23, 0x23, ("jr", 0x18, "loop"),
+        "trade:", 0x3E, ptr_b, 0xCD, *lo_hi(k["GetFarByte"]), 0xFE, 0xFF, ("jr", 0x28, "evolve"),
+        0x47, 0xC5, 0x3E, MON_ITEM, 0xCD, *lo_hi(k["GetPartyParamLocation"]), 0xC1, 0x7E, 0xB8, ("jr", 0x20, "cannot"),
+        "evolve:", 0x3E, LINK_TRADECENTER, 0xEA, *lo_hi(k["wLinkMode"]),
+        0x3E, evo_b, 0x21, *lo_hi(evo), 0xCF,                       # farcall EvolvePokemon
+        0xAF, 0xEA, *lo_hi(k["wLinkMode"]), 0x3E, 0x01, 0xEA, *lo_hi(k["wScriptVar"]), 0xC9,
+        "cannot:", 0x11, SFX_WRONG, 0x00, 0xCD, *lo_hi(k["PlaySFX"]), 0xC3, *lo_hi(k["WaitSFX"]),
+    ], org))
+    back = gb_addr(elm) + 5
+    script = alloc_tail(r, "ProfElmScript (trade evolution)", bank, lambda org: asm([
+        0x6B,                                        # faceplayer
+        0x34, ENGINE_RISINGBADGE, 0x00,              # checkflag ENGINE_RISINGBADGE
+        0x08, ("abs", "no"),                         # iffalse .no
+        0x0E, bank, *lo_hi(routine),                 # callasm ElmTradeEvolution
+        0x09, ("abs", "yes"),                        # iftrue .yes
+        "no:", 0x48, 0x31, 0x24, 0x00,               # opentext / checkevent EVENT_GOT_SS_TICKET_FROM_ELM
+        0x04, bank, *lo_hi(back),                    # farsjump back to the original iftrue
+        "yes:", 0x7B, 0x91,                          # reloadmap / end
+    ], org))
+    r.put("Elm: trade evolution", elm, r.d[elm:elm + 5], [0x04, bank, *lo_hi(script)])
+
+
+def wild_species_offsets(data, start):
+    """All species bytes of Johto grass/water and Kanto grass/water tables, in table order."""
+    off, out = start, []
+    for kind in ("grass", "water", "grass", "water"):
+        while data[off] != 0xFF:
+            if kind == "grass":
+                out += [off + 5 + t * 14 + s * 2 + 1 for t in range(3) for s in range(7)]
+                off += 5 + 42
+            else:
+                out += [off + 3 + s * 2 + 1 for s in range(3)]
+                off += 3 + 6
+        off += 1
+    return off, out
+
+
+def asm_species(text, version):
+    """Species of every wild slot in an asm table file, for one version (IF DEF(_GOLD) / ELIF DEF(_SILVER))."""
+    out, stack = [], []
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("IF DEF(_"):
+            stack.append(s == f"IF DEF(_{version})"); continue
+        if s.startswith("ELIF DEF(_"):
+            stack[-1] = s == f"ELIF DEF(_{version})"; continue
+        if s == "ENDC":
+            stack.pop(); continue
+        if stack and not stack[-1]:
+            continue
+        m = re.match(r"db (\d+), (\w+)", s)
+        if m:
+            out.append(m.group(2))
+    return out
+
+
+WILD_FILES = ["data/wild/johto_grass.asm", "data/wild/johto_water.asm", "data/wild/kanto_grass.asm", "data/wild/kanto_water.asm"]
+
+
+def patch_wild_src(r, en_rom, en_sym, version, repo, base_ref="origin/master"):
+    """Copy every wild species the mod changed (tools/mix_wild.py: other-region mix + other version's
+    exclusives) from the English build to the same slots of the Korean tables. Changed slots come from
+    comparing the original tables at base_ref with the current ones (for this version), so the Korean
+    data's own differences (33 bytes: some levels and version species) stay where nothing was changed."""
+    en = Path(en_rom).read_bytes()
+    line = next(l.split() for l in open(en_sym, encoding="utf-8") if l.split()[1:] == ["JohtoGrassWildMons"])
+    bank, addr = (int(x, 16) for x in line[0].split(":"))
+    en_start = bank * 0x4000 + addr - 0x4000
+    en_end, en_offs = wild_species_offsets(en, en_start)
+    head = en[en_start:en_start + 5 + 6]
+    kr_start = r.find("wild tables", " ".join(f"{b:02X}" for b in head))
+    kr_end, kr_offs = wild_species_offsets(r.d, kr_start)
+    assert kr_end - kr_start == en_end - en_start and wild_maps(en, en_start) == wild_maps(r.d, kr_start)
+    orig, cur = [], []
+    for f in WILD_FILES:
+        old = subprocess.run(["git", "-C", str(repo), "show", f"{base_ref}:{f}"], capture_output=True,
+                             encoding="utf-8", check=True).stdout
+        orig += asm_species(old, version)
+        cur += asm_species((Path(repo) / f).read_text(encoding="utf-8"), version)
+    assert len(orig) == len(cur) == len(en_offs), (len(orig), len(cur), len(en_offs))
+    changed = 0
+    for i, (a, b) in enumerate(zip(orig, cur)):
+        if a != b:
+            r.d[kr_offs[i]] = en[en_offs[i]]
+            changed += 1
+    r.log.append(f"wild: {kr_start:06x}-{kr_end:06x} {changed} changed species copied from the English build")
+
+
 def fix_global_checksum(d):
     s = (sum(d) - d[0x14E] - d[0x14F]) & 0xFFFF
     d[0x14E], d[0x14F] = s >> 8, s & 0xFF
@@ -331,17 +514,26 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--en-rom", default="pokegold.gbc", help="English mod build (mixed wild tables)")
-    ap.add_argument("--en-sym", default="pokegold.sym")
+    ap.add_argument("--en-rom", help="English mod build of the same version (default pokegold.gbc / pokesilver.gbc)")
+    ap.add_argument("--en-sym")
+    ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[1]))
     ap.add_argument("--log")
     args = ap.parse_args()
     data = Path(args.base).read_bytes()
-    assert hashlib.sha1(data).hexdigest() == BASE_SHA1, "not the Korean Gold ROM this patch was made for"
+    version = BASE_SHA1.get(hashlib.sha1(data).hexdigest())
+    assert version, "not the Korean Gold/Silver ROM this patch was made for"
+    stem = "pokegold" if version == "GOLD" else "pokesilver"
+    en_rom, en_sym = args.en_rom or f"{stem}.gbc", args.en_sym or f"{stem}.sym"
     r = Rom(data)
     patch_shiny(r)
     patch_exp(r)
-    patch_wild(r, args.en_rom, args.en_sym)
-    patch_legends(r, args.en_rom)
+    patch_wild_src(r, en_rom, en_sym, version, args.repo)
+    patch_legends(r, en_rom)
+    patch_exp5(r)
+    patch_money5(r)
+    patch_catch(r)
+    patch_even_odds(r)
+    patch_elm_trade_evo(r)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
     text = "\n".join(r.log) + "\n"
