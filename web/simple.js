@@ -18,6 +18,11 @@ const LANG = PARAMS.get('lang') === 'en' ? 'en' : 'kr';
 const VER = PARAMS.get('ver') === 'silver' ? 'silver' : 'gold';
 const ROM_FILENAME = `poke${VER}${LANG === 'en' ? '' : '_kr'}.gbc`;
 const SLOT = LANG + (VER === 'silver' ? '_silver' : '');
+// mod: ?preview=1 — the first screen shows this ROM's own title screen in a frame: no save is read or
+// written, no sound, no buttons. The intro runs fast-forwarded and START is pressed in the intro movie
+// (12 s of game time; the Korean ROM ignores START during the GAME FREAK logo) to land on the title.
+const PREVIEW = PARAMS.get('preview') === '1';
+const PREVIEW_START_SEC = 12;  // game time (emulator clock), not wall time
 const LOCAL_SAVE_KEY = { en: 'extram', kr: 'extram_kr', en_silver: 'extram_silver', kr_silver: 'extram_kr_silver' }[SLOT];
 const ENABLE_FAST_FORWARD = true;
 const FAST_FORWARD_SPEED = 3;  // mod: fixed speed while fast-forward is on
@@ -125,7 +130,7 @@ class VM {
   }
 
   updateExtRam() {
-    if (!emulator) return;
+    if (!emulator || PREVIEW) return;
     const extram = emulator.getExtRam().slice();
     localStorage.setItem(LOCAL_SAVE_KEY, JSON.stringify(Array.from(extram)));
     uploadSave(extram);
@@ -188,7 +193,8 @@ async function uploadSave(extram) {
 (async function go() {
   let response = await fetch(ROM_FILENAME);
   let romBuffer = await response.arrayBuffer();
-  let extRam = await downloadSave();
+  if (PREVIEW) document.body.classList.add('preview');
+  let extRam = PREVIEW ? null : await downloadSave();
   if (extRam === undefined) {
     extRam = new Uint8Array(JSON.parse(localStorage.getItem(LOCAL_SAVE_KEY)));
   } else if (extRam === null) {
@@ -196,6 +202,21 @@ async function uploadSave(extram) {
   }
   Emulator.start(await binjgbPromise, romBuffer, extRam);
   emulator.setBuiltinPalette(vm.palIdx);
+  if (PREVIEW) {
+    vm.volume = 0;
+    emulator.toggleFastForward();
+    const startTicks = PREVIEW_START_SEC * CPU_TICKS_PER_SECOND;
+    const poll = setInterval(() => {
+      if (emulator.ticks < startTicks) return;
+      clearInterval(poll);
+      emulator.toggleFastForward();
+      emulator.setJoypStart(true);
+      setTimeout(() => {
+        emulator.setJoypStart(false);
+        window.parent.postMessage({ previewTitle: true }, '*');
+      }, 150);
+    }, 20);
+  }
 })();
 
 

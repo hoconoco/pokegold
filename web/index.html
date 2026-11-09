@@ -1,302 +1,174 @@
 <!DOCTYPE html>
-<!-- mod: first screen — pick the cartridge (version × language), then play.html runs it.
-     The shell follows a real Game Boy cartridge (DMG shape, as Gold/Silver shipped): stepped top-right
-     corner, recessed top band with the embossed wordmark and grip ridges on both sides, recessed label
-     with grey side strips (product code / THIS SIDE OUT), embossed arrow at the bottom, speckled plastic.
-     Each cartridge stands behind its game box (pack); hovering lifts the cartridge out, clicking sends it up.
-     Photos (the user's own files, kept out of git): web/boxes/<gold|silver>_<kr|en>.png (box, transparent
-     background) and web/carts/<gold|silver>_<kr|en>.png (cartridge front, cut to the outline) replace the
-     drawings when present. -->
+<!-- mod: first screen — the chosen ROM's own title screen, running live (play.html?preview=1 in a frame:
+     intro fast-forwarded and skipped, no sound, no save). ◀ ▶ (or arrow keys / swipe) switch between the
+     four ROMs; tapping the screen, Enter, Space or the start button opens the real game (play.html). -->
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <title>게임판 고르기</title>
+  <title>포켓몬스터 골드·실버</title>
   <script>
     // old links (/?ver=silver, /?lang=en) go straight to the game
     if (/[?&](ver|lang)=/.test(location.search)) location.replace('play.html' + location.search);
   </script>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; }
+    html, body { margin: 0; height: 100%; }
     body {
-      background: #1d1f22;
-      color: #e8e8e8;
-      font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+      background: #000;
+      color: #f0f0f0;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 36px 16px 48px;
-      -webkit-tap-highlight-color: transparent;
-    }
-    h1 { margin: 0 0 28px; font-size: 20px; font-weight: 700; letter-spacing: 0.06em; color: #cfcfcf; }
-    .shelf {
-      display: grid;
-      grid-template-columns: repeat(4, auto);
-      gap: 32px 28px;
       justify-content: center;
-    }
-    @media (max-width: 1000px) { .shelf { grid-template-columns: repeat(2, auto); } }
-    .slot {
-      /* game box (pack) standing on the shelf; the cartridge waits behind it and comes out the top */
-      --w: min(220px, calc((100vw - 32px - 28px) / 2));
-      position: relative;
-      display: block;
-      width: var(--w);
-      height: calc(var(--w) * 1.18);
-      outline: none;
       -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    .slot:focus-visible { outline: 3px solid #fff; outline-offset: 4px; border-radius: 8px; }
-    .cart {
-      position: absolute;
-      left: 22%;
-      bottom: 22%;
-      width: 64%;
-      z-index: 0;
-      transition: transform 0.25s ease;
-      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45));
+    /* 10:9 Game Boy screen, as large as fits above the selector */
+    #screen {
+      position: relative;
+      width: min(100vw, calc((100dvh - 96px) * 10 / 9));
+      aspect-ratio: 10 / 9;
+      background: #000;
+      cursor: pointer;
     }
-    .cart svg { display: block; width: 100%; height: auto; }
-    .cart img { display: block; width: 100%; aspect-ratio: 764 / 870; object-fit: cover; clip-path: url(#cartClip); }
-    .box {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: calc(var(--w) * 1.0);
-      z-index: 1;
-      transition: transform 0.25s ease;
-      filter: drop-shadow(0 12px 14px rgba(0,0,0,0.6));
+    #screen iframe {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      border: 0;
+      pointer-events: none;
     }
-    .box img { display: block; width: 100%; height: 100%; object-fit: contain; }
-    .slot:hover .cart, .slot:focus-visible .cart { transform: translateY(-38%); }
-    .slot:hover .box, .slot:focus-visible .box { transform: translateY(2%); }
-    .slot.inserting .cart { transform: translateY(-150vh); transition: transform 0.55s cubic-bezier(.5,0,.9,.4); }
-
-    /* drawn box when there is no photo: left spine + front face, slight perspective like a shelf photo */
-    .drawn { position: absolute; inset: 4% 0 3% 0; }
-    .drawn .spine {
-      position: absolute; left: 0; top: 3%; bottom: 0; width: 9%;
-      background: var(--box-dark);
-      transform: skewY(-12deg); transform-origin: right top;
-      box-shadow: inset -2px 0 3px rgba(0,0,0,0.35);
-    }
-    .drawn .front {
-      position: absolute; left: 9%; right: 0; top: 0; bottom: 0;
-      background: var(--box-face);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), inset 0 -10px 18px rgba(0,0,0,0.18);
-      display: flex; flex-direction: column; align-items: center; overflow: hidden;
-    }
-    .drawn .band {
-      position: absolute; left: 0; top: 0; bottom: 0; width: 15%;
-      background: #161616;
+    /* black cover while the intro is skipped */
+    #cover {
+      position: absolute; inset: 0;
+      background: #000;
       display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.35s ease;
+      color: #777; font-size: 14px; letter-spacing: 0.3em;
     }
-    .drawn .band span {
-      transform: rotate(-90deg); white-space: nowrap;
-      font: 800 calc(var(--w) * 0.06) "Arial Black", Arial, sans-serif; letter-spacing: 0.04em; color: #f2f2f2;
+    #cover.off { opacity: 0; pointer-events: none; }
+    #fade { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.4s ease-in; }
+    #fade.on { opacity: 1; }
+
+    #bar {
+      height: 96px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
-    .drawn .t1 {
-      margin: 8% 0 0 15%;
+    #bar button {
+      font: inherit;
+      border: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .arrow {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: #2a2d31;
+      color: #ddd;
+      font-size: 18px;
+    }
+    .arrow:hover { background: #3a3e44; }
+    #name {
+      min-width: 9.5em;
       text-align: center;
-      font: 900 calc(var(--w) * 0.105) "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-      color: #e8361c; -webkit-text-stroke: calc(var(--w) * 0.006) #5a1004;
-      text-shadow: 0 2px 0 #ffe9a0; letter-spacing: -0.02em; line-height: 1;
+      font-weight: 700;
+      font-size: 17px;
     }
-    .drawn .t1 small { display: block; margin-top: 0.15em; font-size: 0.6em; letter-spacing: 0.08em; color: var(--accent); -webkit-text-stroke: 0; text-shadow: none; }
-    .drawn svg.emblem { width: 58%; margin: 2% 0 0 15%; flex: 1 1 auto; min-height: 0; }
-    .drawn .t2 { margin: 0 0 5% 15%; font: 700 calc(var(--w) * 0.038) "Malgun Gothic", sans-serif; color: #3a2a10; }
-    .drawn.gold   { --box-face: linear-gradient(150deg, #fff3b8 0%, #f0cf55 35%, #d9a92a 70%, #b68514 100%); --box-dark: #9c7310; --accent: #b23a10; }
-    .drawn.silver { --box-face: linear-gradient(150deg, #ffffff 0%, #dfe4ea 35%, #b9c0c8 70%, #959ca5 100%); --box-dark: #7c838c; --accent: #24508f; }
-    .drawn.silver .t2 { color: #1f2a38; }
+    #name small { display: block; font-weight: 400; font-size: 12px; color: #999; margin-top: 2px; }
+    #start {
+      padding: 10px 18px;
+      border-radius: 22px;
+      background: #c9a227;
+      color: #1a1a1a;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    #start.silver { background: #b9bec5; }
+    #start:hover { filter: brightness(1.1); }
   </style>
 </head>
 <body>
-  <h1>게임판 고르기</h1>
-  <div class="shelf" id="shelf"></div>
-
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <!-- cartridge outline (same as #body) for photos -->
-      <clipPath id="cartClip" clipPathUnits="objectBoundingBox">
-        <path transform="scale(0.001309 0.001149)" d="M18 4 H686 V40 Q686 46 692 46 H744 Q756 46 756 58 V846 Q756 866 736 866 H28 Q8 866 8 846 V14 Q8 4 18 4 Z"/>
-      </clipPath>
-      <!-- speckled plastic -->
-      <filter id="speckle" x="0" y="0" width="100%" height="100%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="7" result="n"/>
-        <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 14 -10.2" result="dots0"/>
-        <feComponentTransfer in="dots0" result="dots"><feFuncA type="linear" slope="0.45"/></feComponentTransfer>
-        <feComposite in="dots" in2="SourceGraphic" operator="in" result="d"/>
-        <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="d"/></feMerge>
-      </filter>
-      <!-- recess: dark upper-left inner edge, light lower-right -->
-      <filter id="recess" x="-5%" y="-5%" width="110%" height="110%">
-        <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="b"/>
-        <feOffset in="b" dx="4" dy="5" result="o"/>
-        <feComposite in="SourceAlpha" in2="o" operator="out" result="inner"/>
-        <feFlood flood-color="#000" flood-opacity="0.45"/>
-        <feComposite in2="inner" operator="in" result="shadow"/>
-        <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="shadow"/></feMerge>
-      </filter>
-      <path id="body" d="M18 4 H686 V40 Q686 46 692 46 H744 Q756 46 756 58 V846 Q756 866 736 866 H28 Q8 866 8 846 V14 Q8 4 18 4 Z"/>
-      <g id="ridges">
-        <rect x="0" y="0"   width="80" height="9" rx="4"/>
-        <rect x="0" y="24"  width="80" height="9" rx="4"/>
-        <rect x="0" y="48"  width="80" height="9" rx="4"/>
-        <rect x="0" y="72"  width="80" height="9" rx="4"/>
-        <rect x="0" y="96"  width="80" height="9" rx="4"/>
-      </g>
-      <radialGradient id="goldArt" cx="60%" cy="45%" r="75%">
-        <stop offset="0" stop-color="#d8d06a"/><stop offset="0.45" stop-color="#7f8a36"/><stop offset="1" stop-color="#3a4220"/>
-      </radialGradient>
-      <radialGradient id="silverArt" cx="60%" cy="45%" r="75%">
-        <stop offset="0" stop-color="#a9c7e6"/><stop offset="0.45" stop-color="#3f6797"/><stop offset="1" stop-color="#16243f"/>
-      </radialGradient>
-      <path id="feather" d="M0 -40 C 14 -60, 12 -82, 0 -96 C -12 -82, -14 -60, 0 -40 Z"/>
-      <g id="sunArt">
-        <g fill="#f7d23a" stroke="#a03a10" stroke-width="3">
-          <use href="#feather"/><use href="#feather" transform="rotate(30)"/><use href="#feather" transform="rotate(60)"/>
-          <use href="#feather" transform="rotate(90)"/><use href="#feather" transform="rotate(120)"/><use href="#feather" transform="rotate(150)"/>
-          <use href="#feather" transform="rotate(180)"/><use href="#feather" transform="rotate(210)"/><use href="#feather" transform="rotate(240)"/>
-          <use href="#feather" transform="rotate(270)"/><use href="#feather" transform="rotate(300)"/><use href="#feather" transform="rotate(330)"/>
-        </g>
-        <circle r="40" fill="#e8501c" stroke="#a03a10" stroke-width="4"/>
-        <circle r="26" fill="#ffd75a"/>
-      </g>
-      <mask id="crescent"><rect x="-120" y="-120" width="240" height="240" fill="#fff"/><circle cx="26" cy="-30" r="56" fill="#000"/></mask>
-      <g id="moonArt">
-        <circle r="66" fill="#e9f1fb" stroke="#0e1e3a" stroke-width="4" mask="url(#crescent)"/>
-        <g fill="none" stroke="#cfe4ff" stroke-width="8" stroke-linecap="round">
-          <path d="M-100 82 q 25 -18 50 0 t 50 0 t 50 0 t 50 0"/>
-          <path d="M-80 108 q 20 -14 40 0 t 40 0 t 40 0 t 40 0" opacity="0.7"/>
-        </g>
-      </g>
-    </defs>
-  </svg>
+  <div id="screen" title="눌러서 시작">
+    <iframe id="preview" title="시작 화면" tabindex="-1"></iframe>
+    <div id="cover">· · ·</div>
+    <div id="fade"></div>
+  </div>
+  <div id="bar">
+    <button class="arrow" id="prev" aria-label="이전 판">◀</button>
+    <div id="name"></div>
+    <button class="arrow" id="next" aria-label="다음 판">▶</button>
+    <button id="start">시작</button>
+  </div>
 
   <script>
-    const CARTS = [
-      { ver: 'gold',   lang: 'kr', code: 'DMG-AAUK-KOR', series: '포켓몬스터', title: '골드 버전', name: '포켓몬스터 골드 한국어판' },
-      { ver: 'silver', lang: 'kr', code: 'DMG-AAXK-KOR', series: '포켓몬스터', title: '실버 버전', name: '포켓몬스터 실버 한국어판' },
-      { ver: 'gold',   lang: 'en', code: 'DMG-AAUE-USA', series: 'POKéMON',  title: 'GOLD VERSION',   name: 'Pokémon Gold, English' },
-      { ver: 'silver', lang: 'en', code: 'DMG-AAXE-USA', series: 'POKéMON',  title: 'SILVER VERSION', name: 'Pokémon Silver, English' },
+    const GAMES = [
+      { q: '',                      name: '골드',   sub: '한국어판', silver: false },
+      { q: 'ver=silver',            name: '실버',   sub: '한국어판', silver: true },
+      { q: 'lang=en',               name: 'GOLD',   sub: 'English',  silver: false },
+      { q: 'lang=en&ver=silver',    name: 'SILVER', sub: 'English',  silver: true },
     ];
-    const PLASTIC = {
-      gold:   { base: '#d9b52c', hi: '#f1d65e', lo: '#9c7b0e', ink: '#b8961c' },
-      silver: { base: '#b6b9bd', hi: '#dfe2e5', lo: '#7d8186', ink: '#9a9da2' },
-    };
+    let idx = 0;
+    try { idx = Math.min(GAMES.length - 1, Math.max(0, +localStorage.getItem('shelf_idx') || 0)); } catch (e) {}
 
-    function cartSvg(c) {
-      const p = PLASTIC[c.ver];
-      const art = c.ver === 'gold' ? 'goldArt' : 'silverArt';
-      const emblem = c.ver === 'gold' ? 'sunArt' : 'moonArt';
-      const kr = c.lang === 'kr';
-      // wordmark embossed in the top band: light edge, dark edge, plastic face
-      const mark = (dx, dy, fill) => `
-        <text x="${383 + dx}" y="${152 + dy}" text-anchor="middle" fill="${fill}"
-              font-family="Arial Black, Arial, sans-serif" font-style="italic">
-          <tspan font-size="40" font-weight="700" letter-spacing="-1">Nintendo</tspan><tspan font-size="54" font-weight="900" dx="6">GAME BOY</tspan><tspan font-size="18" dy="-26" dx="4">TM</tspan>
-        </text>`;
-      return `
-<svg viewBox="0 0 764 870" xmlns="http://www.w3.org/2000/svg">
-  <g filter="url(#speckle)">
-    <use href="#body" fill="${p.base}"/>
-  </g>
-  <!-- edge light -->
-  <use href="#body" fill="none" stroke="${p.hi}" stroke-width="5" opacity="0.8" transform="translate(-1.5 -1.5)"/>
-  <use href="#body" fill="none" stroke="${p.lo}" stroke-width="3" opacity="0.7"/>
+    const frame = document.getElementById('preview');
+    const cover = document.getElementById('cover');
+    let coverTimer = 0;
+    let going = false;
 
-  <!-- top band: recessed pill with the wordmark, grip ridges on both sides -->
-  <rect x="92" y="58" width="590" height="158" rx="78" fill="${p.base}" filter="url(#recess)"/>
-  <rect x="92" y="58" width="590" height="158" rx="78" fill="none" stroke="${p.lo}" stroke-width="2" opacity="0.6"/>
-  <g fill="${p.lo}" opacity="0.55">
-    <use href="#ridges" transform="translate(12 82)"/>
-    <use href="#ridges" transform="translate(676 82)"/>
-  </g>
-  <g fill="${p.hi}" opacity="0.7">
-    <use href="#ridges" transform="translate(12 86) scale(1 0.4)"/>
-    <use href="#ridges" transform="translate(676 86) scale(1 0.4)"/>
-  </g>
-  ${mark(-1.5, -1.5, p.hi)}${mark(2, 2, p.lo)}${mark(0, 0, p.ink)}
-
-  <!-- label well -->
-  <rect x="88" y="240" width="590" height="522" rx="10" fill="${p.base}" filter="url(#recess)"/>
-  <rect x="88" y="240" width="590" height="522" rx="10" fill="none" stroke="${p.lo}" stroke-width="2" opacity="0.6"/>
-
-  <!-- label -->
-  <g transform="translate(104 256)">
-    <rect width="557" height="492" fill="#c9cacb"/>
-    <rect x="58" width="441" height="492" fill="url(#${art})"/>
-    <text transform="translate(36 246) rotate(90)" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#3a3a3a" letter-spacing="1">${c.code}</text>
-    <text transform="translate(521 246) rotate(-90)" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#3a3a3a" letter-spacing="1">THIS SIDE OUT</text>
-    <use href="#${emblem}" transform="translate(300 268) scale(1.25)"/>
-    <text x="278" y="112" text-anchor="middle"
-          font-family="${kr ? "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif" : "'Arial Black', Arial, sans-serif"}"
-          font-size="${kr ? 76 : 84}" font-weight="900" fill="#ffd21f" stroke="#2a4fa8" stroke-width="12"
-          stroke-linejoin="round" paint-order="stroke" letter-spacing="${kr ? 0 : -2}">${c.series}</text>
-    <text x="278" y="462" text-anchor="middle"
-          font-family="${kr ? "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif" : "Impact, 'Arial Narrow', Arial, sans-serif"}"
-          font-size="${kr ? 40 : 42}" font-weight="700" fill="#fff" stroke="#000" stroke-width="5"
-          paint-order="stroke" letter-spacing="1">${c.title}</text>
-  </g>
-
-  <!-- embossed arrow -->
-  <path d="M330 784 H436 L383 838 Z" fill="${p.base}" filter="url(#recess)"/>
-  <path d="M330 784 H436 L383 838 Z" fill="none" stroke="${p.lo}" stroke-width="2" opacity="0.6"/>
-</svg>`;
+    function show() {
+      const g = GAMES[idx];
+      document.getElementById('name').innerHTML = `${g.name}<small>${g.sub}</small>`;
+      document.getElementById('start').classList.toggle('silver', g.silver);
+      cover.classList.remove('off');
+      frame.src = 'play.html?preview=1' + (g.q ? '&' + g.q : '');
+      clearTimeout(coverTimer);
+      coverTimer = setTimeout(() => cover.classList.add('off'), 8000);  // fallback if no message
+      try { localStorage.setItem('shelf_idx', String(idx)); } catch (e) {}
     }
-
-    function boxHtml(c) {
-      const kr = c.lang === 'kr';
-      const t1 = kr ? `포켓몬스터<small>${c.ver === 'gold' ? '골드' : '실버'}</small>`
-                    : `POKéMON<small>${c.ver === 'gold' ? 'GOLD' : 'SILVER'}</small>`;
-      const t2 = kr ? '게임보이 컬러 전용·게임보이 대응' : 'GAME BOY COLOR · GAME BOY';
-      return `<div class="drawn ${c.ver}">
-        <div class="spine"></div>
-        <div class="front">
-          <div class="band"><span>GAME BOY COLOR</span></div>
-          <div class="t1">${t1}</div>
-          <svg class="emblem" viewBox="-50 -50 100 100"><use href="#${c.ver === 'gold' ? 'sunArt' : 'moonArt'}" transform="scale(0.42)"/></svg>
-          <div class="t2">${t2}</div>
-        </div>
-      </div>`;
-    }
-
-    const shelf = document.getElementById('shelf');
-    for (const c of CARTS) {
-      const q = new URLSearchParams();
-      if (c.lang === 'en') q.set('lang', 'en');
-      if (c.ver === 'silver') q.set('ver', 'silver');
-      const a = document.createElement('a');
-      a.className = 'slot';
-      a.href = 'play.html' + (q.toString() ? '?' + q : '');
-      a.setAttribute('aria-label', c.name);
-      a.innerHTML = '<div class="cart"></div><div class="box"></div>';
-      const cart = a.querySelector('.cart');
-      cart.innerHTML = cartSvg(c);
-      const box = a.querySelector('.box');
-      box.innerHTML = boxHtml(c);
-      // the user's own photos, when present, replace the drawings
-      const cimg = new Image();
-      cimg.alt = '';
-      cimg.onload = () => cart.replaceChildren(cimg);
-      cimg.src = `carts/${c.ver}_${c.lang}.png`;
-      const bimg = new Image();
-      bimg.alt = c.name;
-      bimg.onload = () => box.replaceChildren(bimg);
-      bimg.src = `boxes/${c.ver}_${c.lang}.png`;
-      a.addEventListener('click', (e) => {
-        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-        e.preventDefault();
-        a.classList.add('inserting');
-        setTimeout(() => { location.href = a.href; }, 480);
-      });
-      shelf.appendChild(a);
-    }
-    // back button: show the shelf again
-    addEventListener('pageshow', () => {
-      for (const a of document.querySelectorAll('.slot.inserting')) a.classList.remove('inserting');
+    // the frame says when it reached the title screen
+    addEventListener('message', (e) => {
+      if (e.source === frame.contentWindow && e.data && e.data.previewTitle) {
+        clearTimeout(coverTimer);
+        setTimeout(() => cover.classList.add('off'), 250);
+      }
     });
+    function step(d) { idx = (idx + d + GAMES.length) % GAMES.length; show(); }
+    function go() {
+      if (going) return;
+      going = true;
+      document.getElementById('fade').classList.add('on');
+      const g = GAMES[idx];
+      setTimeout(() => { location.href = 'play.html' + (g.q ? '?' + g.q : ''); }, 420);
+    }
+
+    document.getElementById('prev').addEventListener('click', () => step(-1));
+    document.getElementById('next').addEventListener('click', () => step(1));
+    document.getElementById('start').addEventListener('click', go);
+    document.getElementById('screen').addEventListener('click', go);
+    addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { step(1); e.preventDefault(); }
+      else if (e.key === 'Enter' || e.key === ' ') { go(); e.preventDefault(); }
+    });
+    // swipe on phones
+    let sx = null;
+    addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    addEventListener('touchend', (e) => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      sx = null;
+      if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1);
+    });
+    // back button: undo the fade
+    addEventListener('pageshow', () => { going = false; document.getElementById('fade').classList.remove('on'); });
+
+    show();
   </script>
 </body>
 </html>

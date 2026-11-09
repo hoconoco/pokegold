@@ -293,3 +293,8 @@ body {
   border-color: #f6d04d;
   color: #1a1204;
 }
+
+/* mod: ?preview=1 (title screen in the first screen's frame) — the picture only */
+body.preview #controller, body.preview #top_buttons, body.preview #save_status { display: none !important; }
+body.preview #game { height: 100vh; }
+body.preview { background: #000; }
