@@ -47,7 +47,7 @@ B = os.path.join(ROOT, '..', 'pokefirered', '.build', 'common15')
 # press: START frame (None = let the intro end), frm: where to look for the music start,
 # frames: how long to run, still: seconds after the music start
 GAMES = {
-    'yellow':    dict(rom=os.path.join(B, 'yellow', 'pokemon_yellow_kr_0.8.0.gba'), press=600, frm=600, frames=3800, still=10),
+    'yellow':    dict(rom=os.path.join(B, 'yellow', 'pokemon_yellow_kr_0.8.1.gba'), press=600, frm=600, frames=3800, still=10),
     'gold':      dict(rom=os.path.join(ROOT, '.build', 'kr', 'pokegold_kr.gbc'), press=720, frm=720, frames=6200, still=10),
     'silver':    dict(rom=os.path.join(ROOT, '.build', 'kr', 'pokesilver_kr.gbc'), press=720, frm=720, frames=6200, still=10),
     'ruby':      dict(rom=os.path.join(B, 'ruby', 'ruby_kr_mod_2.1.0.gba'), press=None, frm=3200, frames=9700, still=10),
