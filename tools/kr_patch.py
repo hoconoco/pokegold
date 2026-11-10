@@ -14,8 +14,11 @@ Patches:
 New routines go into the zero-filled tail of the bank that calls them.
 
 - 2nd stage: 5x exp and prize money, every ball catches, even species odds in grass/water, the other
-  version's exclusives in spare wild slots, Prof. Elm trade evolution after the 8th badge (no new text —
-  the Korean text encoding is not mapped yet). Korean Silver (AAXK) uses the same code addresses.
+  version's exclusives in spare wild slots, Prof. Elm trade evolution after the 8th badge. Korean Silver (AAXK)
+  uses the same code addresses.
+- Korean text (tools/kr_charset.py encoding, text box codes TX_* below): the legends' cry text, and Prof. Elm
+  asks before the party menu (yes/no) and says why when the chosen mon cannot evolve (the English mod has no
+  Elm text).
 - guide menu: START menu '공략' (tools/kr_guide.py, Korean text with tools/kr_charset.py).
 
 Usage: python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out pokegold_kr.gbc
@@ -28,7 +31,24 @@ import re
 import subprocess
 from pathlib import Path
 
-from kr_guide import patch_guide
+from kr_guide import charmap, patch_guide
+
+# Korean text box codes (read from the Korean ROM's own texts: Elm, Lugia, Ho-Oh)
+TX_START, TX_LINE, TX_PARA, TX_CONT, TX_DONE, TX_PLAYER = 0x00, 0x5A, 0x5C, 0x5D, 0x5E, 0x51
+# legend cries in the style of the Korean ROM (Lugia 으갸아아!!, Ho-Oh 조오-!!); the English mod's texts are
+# Gyaoo! (Articuno, Moltres), Gyaaas! (Zapdos — Lugia's English text), Mew! (Mewtwo, Mew), Biii! (Celebi)
+LEGEND_CRY = {144: "갸오오!!", 145: "으갸아아!!", 146: "갸오오!!", 150: "뮤우!!", 151: "뮤우!!", 251: "삐이이!!"}
+ELM_ASK = ["공박사『", TX_PLAYER, "군!", TX_LINE, "배지를 8개나 모았구나!", TX_PARA, "통신 교환으로 진화하는",
+           TX_LINE, "포켓몬이 있다면", TX_CONT, "여기서 진화시켜 줄까?"]
+ELM_CANNOT = ["공박사『그 포켓몬은", TX_LINE, "아직 진화할 수 없구나", TX_PARA, "통신 교환으로 진화하는지",
+              TX_LINE, "필요한 도구를 지녔는지", TX_CONT, "확인해 보렴"]
+
+
+def kr_text(r, parts):
+    """text command data: start, Korean text (strings via kr_guide.charmap, ints = control codes), done"""
+    enc = charmap(r.d)
+    body = b"".join(enc(x) if isinstance(x, str) else bytes([x]) for x in parts)
+    return bytes([TX_START]) + body + bytes([TX_DONE])
 
 BASE_SHA1 = {"c0ff3999e1093e1af59ef3eea3f1bfd7c1f18a65": "GOLD",     # POKEMON_GLD AAUK
              "cb22d7e03a74dc3a563fde6be8626626b2b392e7": "SILVER"}   # POKEMON_SLV AAXK (user-provided 2026-11-09)
@@ -309,10 +329,13 @@ def patch_legends(r, en_rom):
         species, level = script_en[6], script_en[13]
         obj = objs + 2  # object_const_def starts at 2
         r.free.setdefault(bank, bank * 0x4000 + 0x4000 - free_tail(r.d, bank) + 16)
+        cry = r.alloc(f"{name}: legend cry text", bank, lambda org: kr_text(r, [LEGEND_CRY[species]]))
         script = r.alloc(f"{name}: legend script", bank, lambda org: asm([
             0x6B,                         # faceplayer
+            0x48, 0x4D, *lo_hi(cry),      # opentext / writetext (cry text)
             0x84, species, 0x00,          # cry
             0x8B, 0x0F,                   # pause 15
+            0x4A,                         # closetext
             0x5D, species, level,         # loadwildmon
             0x5F,                         # startbattle
             0x1C, 0x02,                   # readvar VAR_BATTLERESULT
@@ -426,17 +449,27 @@ def patch_elm_trade_evo(r):
         "evolve:", 0x3E, LINK_TRADECENTER, 0xEA, *lo_hi(k["wLinkMode"]),
         0x3E, evo_b, 0x21, *lo_hi(evo), 0xCF,                       # farcall EvolvePokemon
         0xAF, 0xEA, *lo_hi(k["wLinkMode"]), 0x3E, 0x01, 0xEA, *lo_hi(k["wScriptVar"]), 0xC9,
-        "cannot:", 0x11, SFX_WRONG, 0x00, 0xCD, *lo_hi(k["PlaySFX"]), 0xC3, *lo_hi(k["WaitSFX"]),
+        "cannot:", 0x3E, 0x02, 0xEA, *lo_hi(k["wScriptVar"]),     # wScriptVar = 2: cannot evolve
+        0x11, SFX_WRONG, 0x00, 0xCD, *lo_hi(k["PlaySFX"]), 0xC3, *lo_hi(k["WaitSFX"]),
     ], org))
+    ask = alloc_tail(r, "Elm: trade evolution text", bank, lambda org: kr_text(r, ELM_ASK))
+    cannot = alloc_tail(r, "Elm: cannot evolve text", bank, lambda org: kr_text(r, ELM_CANNOT))
     back = gb_addr(elm) + 5
     script = alloc_tail(r, "ProfElmScript (trade evolution)", bank, lambda org: asm([
         0x6B,                                        # faceplayer
         0x34, ENGINE_RISINGBADGE, 0x00,              # checkflag ENGINE_RISINGBADGE
         0x08, ("abs", "no"),                         # iffalse .no
-        0x0E, bank, *lo_hi(routine),                 # callasm ElmTradeEvolution
-        0x09, ("abs", "yes"),                        # iftrue .yes
+        0x48, 0x4D, *lo_hi(ask),                     # opentext / writetext (evolve one?)
+        0x4F,                                        # yesorno
+        0x08, ("abs", "no"),                         # iffalse .no (the usual talk)
+        0x4A,                                        # closetext
+        0x0E, bank, *lo_hi(routine),                 # callasm ElmTradeEvolution (0 cancelled, 1 evolved, 2 cannot)
+        0x06, 0x01, ("abs", "yes"),                  # ifequal 1, .yes
+        0x06, 0x02, ("abs", "cannot"),               # ifequal 2, .cannot
         "no:", 0x48, 0x31, 0x24, 0x00,               # opentext / checkevent EVENT_GOT_SS_TICKET_FROM_ELM
         0x04, bank, *lo_hi(back),                    # farsjump back to the original iftrue
+        "cannot:", 0x48, 0x4D, *lo_hi(cannot),       # opentext / writetext
+        0x54, 0x4A, 0x91,                            # waitbutton / closetext / end
         "yes:", 0x7B, 0x91,                          # reloadmap / end
     ], org))
     r.put("Elm: trade evolution", elm, r.d[elm:elm + 5], [0x04, bank, *lo_hi(script)])
