@@ -477,8 +477,8 @@ WILD_FILES = ["data/wild/johto_grass.asm", "data/wild/johto_water.asm", "data/wi
 
 
 def patch_wild_src(r, en_rom, en_sym, version, repo, base_ref="origin/master"):
-    """Copy every wild species the mod changed (tools/mix_wild.py: other-region mix + other version's
-    exclusives) from the English build to the same slots of the Korean tables. Changed slots come from
+    """Copy every wild species the mod changed (tools/mix_wild.py: the other version's exclusives in spare
+    slots) from the English build to the same slots of the Korean tables. Changed slots come from
     comparing the original tables at base_ref with the current ones (for this version), so the Korean
     data's own differences (33 bytes: some levels and version species) stay where nothing was changed."""
     en = Path(en_rom).read_bytes()
