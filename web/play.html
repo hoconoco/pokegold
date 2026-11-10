@@ -1,37 +1,339 @@
 <!DOCTYPE html>
-<!-- copied from
-https://github.com/chrismaltby/gb-studio/blob/v2beta/appData/js-emulator/index.html
-(see LICENSE.gbstudio)
--->
+<!-- mod: play screen on the mGBA web core (Game Boy, Color and Advance).
+     play.html?game=<id>  — ids in GAMES below (Korean mod builds, roms/<id>.gba|gbc, copied in at deploy).
+     The device frame is the owner's photo of the handheld (frames/<gbc|gba>.webp, not in git): the game
+     picture covers the photo's screen, the photo's buttons are the touch targets, the photo's power lamp
+     shows the save state. A game whose frame photo is missing gets the picture and plain buttons.
+     Save: one server slot per game (api/save?slot=), uploaded about a second after the game writes it;
+     the browser's own copy (IndexedDB) is the fallback when the server cannot be reached.
+     play.html?game=<id>&preview=1 — for the first screen: no frame, no save, sound off until the parent
+     page turns it on, the intro is fast-forwarded and skipped to the title screen (PREVIEW_SKIP). -->
+<html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="simple.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <title>Pokemon Gold Mod</title>
+  <title>포켓몬스터</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #0d0f12; overflow: hidden; }
+    body {
+      color: #e8e6e1;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
+    }
+    #stage { position: fixed; inset: 0; }
+    #dev { position: absolute; left: 50%; top: 50%; transform-origin: center; }
+    #dev .part { position: absolute; }
+    #photo { display: block; pointer-events: none; -webkit-user-drag: none; }
+    #lit { background: #000; border-radius: 3px; }
+    canvas#screen { display: block; width: 100%; height: 100%; image-rendering: pixelated; background: #000; }
+    /* the photo's power lamp, used as the save lamp */
+    #led { border-radius: 50%; opacity: 0; transition: background 0.2s, box-shadow 0.2s, opacity 0.2s; }
+    #led.ok   { opacity: 1; background: #3ad06a; box-shadow: 0 0 10px 3px rgba(58,208,106,0.8); }
+    #led.busy { opacity: 1; background: #f2a33a; box-shadow: 0 0 10px 3px rgba(242,163,58,0.85); }
+    #led.fail { opacity: 1; background: #ff3b30; box-shadow: 0 0 10px 3px rgba(255,59,48,0.85); }
+    /* touch targets over the photo's buttons; pressed = the button sinks a little */
+    .hot { border: 0; padding: 0; background: transparent; border-radius: 8px; touch-action: none; }
+    .hot.round { border-radius: 50%; }
+    .hot.pill { border-radius: 999px; }
+    .hot.on { background: rgba(0,0,0,0.28); box-shadow: inset 0 3px 6px rgba(0,0,0,0.45); }
+    /* no frame photo: the buttons of the earlier web player (grey pad, magenta A/B, grey capsules) */
+    .plain .hot {
+      opacity: 0.8;
+      background: radial-gradient(ellipse at center, #666 0%, #5c5c5c 80%);
+      color: transparent;
+      border-radius: 6px;
+    }
+    .plain .hot.round {
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, #ab1465 0%, #8b1e57 100%);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.2);
+      color: #440f1f; font: 700 48px sans-serif;
+    }
+    .plain .hot.pill {
+      border-radius: 999px;
+      background: radial-gradient(ellipse at center, #666 0%, #555 100%);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.2);
+      color: #111; font: 700 16px sans-serif;
+    }
+    .plain .hot.on { opacity: 0.5; box-shadow: none; }
+    /* top corner: game select and speed, small and quiet */
+    #corner {
+      position: fixed; z-index: 5;
+      top: calc(env(safe-area-inset-top, 0px) + 10px);
+      right: calc(env(safe-area-inset-right, 0px) + 10px);
+      display: flex; gap: 8px;
+    }
+    #corner button {
+      font: 600 13px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      color: rgba(232,230,225,0.8);
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      padding: 6px 12px;
+      touch-action: manipulation;
+    }
+    #corner button.fast { color: #1a1405; background: #f2c14e; border-color: #f2c14e; }
+    #msg {
+      position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); transform: translateX(-50%);
+      font-size: 12px; color: rgba(232,230,225,0.55); z-index: 5; white-space: nowrap;
+    }
+    #fadein { position: fixed; inset: 0; background: #fff; z-index: 9; pointer-events: none; transition: opacity 0.5s ease-out; }
+    #fadein.off { opacity: 0; }
+    /* preview: the picture only */
+    body.preview #corner, body.preview #msg, body.preview #fadein { display: none; }
+  </style>
 </head>
 <body>
-  <div id="game">
-    <canvas id="mainCanvas" width="160" height="144">No Canvas Support</canvas>
+  <div id="stage"><div id="dev"></div></div>
+  <div id="corner">
+    <button id="home" type="button">판 선택</button>
+    <button id="speed" type="button" aria-label="게임 속도">×1</button>
   </div>
-  <div id="controller">
-    <div id="controller_dpad">
-      <div id="controller_left"></div>
-      <div id="controller_right"></div>
-      <div id="controller_up"></div>
-      <div id="controller_down"></div>
-    </div>
-    <div id="controller_select" class="capsuleBtn">Select</div>
-    <div id="controller_start" class="capsuleBtn">Start</div>
-    <div id="controller_b" class="roundBtn">B</div>
-    <div id="controller_a" class="roundBtn">A</div>
-  </div>
-  <div id="top_buttons">
-    <button id="home_button" type="button">판 선택</button>
-    <button id="ff_toggle" type="button">▶▶ x3 OFF</button>
-  </div>
-  <div id="save_status">세이브: 확인 중</div>
-  <script src="binjgb.js"></script>
-  <script src="simple.js"></script>
+  <div id="msg"></div>
+  <div id="fadein"></div>
+
+  <script type="module">
+    import mGBA from './mgba/mgba.js';
+
+    const GAMES = {
+      yellow:    { name: '옐로',       rom: 'yellow.gba',    slot: 'yellow',    frame: 'gba' },
+      gold:      { name: '골드',       rom: 'gold.gbc',      slot: 'kr',        frame: null },
+      silver:    { name: '실버',       rom: 'silver.gbc',    slot: 'kr_silver', frame: null },
+      ruby:      { name: '루비',       rom: 'ruby.gba',      slot: 'ruby',      frame: 'gba' },
+      sapphire:  { name: '사파이어',   rom: 'sapphire.gba',  slot: 'sapphire',  frame: 'gba' },
+      firered:   { name: '파이어레드', rom: 'firered.gba',   slot: 'firered',   frame: 'gba' },
+      leafgreen: { name: '리프그린',   rom: 'leafgreen.gba', slot: 'leafgreen', frame: 'gba' },
+      emerald:   { name: '에메랄드',   rom: 'emerald.gba',   slot: 'emerald',   frame: 'gba' },
+    };
+    // Gold/Silver: the plain layout (picture and buttons) — the user preferred it to the photo frame.
+    // Frame photos (owner's photos, cropped): image size, the photo's lit screen, where the game picture
+    // goes (the game's own aspect), the power lamp, and the buttons. Coordinates are image pixels.
+    const FRAMES = {
+      gbc: { src: 'frames/gbc.webp', w: 720, h: 1040,
+             clip: "path('M 96 6 L 592 6 Q 622 6 624 36 L 716 1040 L 4 1040 L 66 36 Q 68 6 96 6 Z')",
+             lit: [154, 71, 390, 304], game: [182, 73, 334, 300], led: [110, 152, 22],
+             hot: {
+               Up: [132, 550, 56, 56], Down: [132, 658, 56, 56], Left: [78, 600, 57, 58], Right: [187, 600, 57, 58],
+               B: [431, 604, 84, 84, 'round'], A: [549, 560, 84, 84, 'round'],
+               Select: [268, 807, 70, 38, 'pill'], Start: [372, 807, 70, 38, 'pill'],
+             } },
+      gba: null,  // photo pending
+    };
+    // first screen: how to reach the title screen — press `button` after `frames` emulated frames
+    const PREVIEW_SKIP = {
+      yellow: { frames: 600, button: 'Start' }, gold: { frames: 720, button: 'Start' }, silver: { frames: 720, button: 'Start' },
+      ruby: { frames: 600, button: 'Start' }, sapphire: { frames: 600, button: 'Start' },
+      firered: { frames: 600, button: 'Start' }, leafgreen: { frames: 600, button: 'Start' }, emerald: { frames: 600, button: 'Start' },
+    };
+    const SPEEDS = [1, 2, 3];
+
+    const q = new URLSearchParams(location.search);
+    const id = GAMES[q.get('game')] ? q.get('game') : 'gold';
+    const G = GAMES[id];
+    const PREVIEW = q.get('preview') === '1';
+    const $ = (s) => document.querySelector(s);
+    document.title = `포켓몬스터 ${G.name}`;
+    if (PREVIEW) document.body.classList.add('preview');
+
+    const isGbc = G.rom.endsWith('.gbc');
+    const [SW, SH] = isGbc ? [160, 144] : [240, 160];
+
+    // ---------- layout ----------
+    async function loadFrame() {
+      const f = FRAMES[G.frame];
+      if (PREVIEW || !f) return null;
+      const ok = await new Promise((res) => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = f.src; });
+      return ok ? f : null;
+    }
+    const box = (x, y, w, h) => `left:${x}px;top:${y}px;width:${w}px;height:${h}px;`;
+    function build(f) {
+      const dev = $('#dev');
+      let html = '';
+      if (f) {
+        dev.style.width = f.w + 'px'; dev.style.height = f.h + 'px';
+        html += `<img id="photo" class="part" src="${f.src}" alt="" style="${box(0, 0, f.w, f.h)}clip-path:${f.clip}">`;
+        html += `<div id="lit" class="part" style="${box(...f.lit)}"></div>`;
+        html += `<div class="part" style="${box(...f.game)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
+        html += `<div id="led" class="part" style="${box(f.led[0] - f.led[2] / 2, f.led[1] - f.led[2] / 2, f.led[2], f.led[2])}"></div>`;
+        for (const [k, v] of Object.entries(f.hot)) {
+          html += `<button class="part hot ${v[4] || ''}" data-k="${k}" aria-label="${k}" style="${box(v[0], v[1], v[2], v[3])}"></button>`;
+        }
+      } else if (PREVIEW) {
+        dev.style.width = SW * 4 + 'px'; dev.style.height = SH * 4 + 'px';
+        html += `<div class="part" style="${box(0, 0, SW * 4, SH * 4)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
+      } else {
+        // plain: picture on top, buttons below (portrait phone first)
+        const W = 720, gh = Math.round(W * SH / SW);
+        dev.classList.add('plain');
+        dev.style.width = W + 'px'; dev.style.height = gh + 560 + 'px';
+        html += `<div class="part" style="${box(0, 0, W, gh)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
+        html += `<div id="led" class="part" style="${box(10, gh + 14, 14, 14)}"></div>`;
+        const y = gh + 90;
+        const pad = { Up: [110, y, 90, 90], Down: [110, y + 180, 90, 90], Left: [20, y + 90, 90, 90], Right: [200, y + 90, 90, 90],
+                      B: [440, y + 110, 110, 110, 'round'], A: [580, y + 50, 110, 110, 'round'],
+                      Select: [230, y + 340, 110, 44, 'pill'], Start: [380, y + 340, 110, 44, 'pill'] };
+        if (!isGbc) { pad.L = [0, gh + 20, 160, 50, 'pill']; pad.R = [W - 160, gh + 20, 160, 50, 'pill']; }
+        const label = { Up: '▲', Down: '▼', Left: '◀', Right: '▶', A: 'A', B: 'B', Select: 'SELECT', Start: 'START', L: 'L', R: 'R' };
+        for (const [k, v] of Object.entries(pad)) {
+          html += `<button class="part hot ${v[4] || ''}" data-k="${k}" aria-label="${k}" style="${box(v[0], v[1], v[2], v[3])}">${label[k]}</button>`;
+        }
+      }
+      dev.innerHTML = html;
+      fit();
+      addEventListener('resize', fit);
+    }
+    function fit() {
+      const dev = $('#dev');
+      const w = parseFloat(dev.style.width), h = parseFloat(dev.style.height);
+      const top = PREVIEW ? 0 : 44;   // room for the corner buttons
+      const s = Math.min(innerWidth / w, (innerHeight - top) / h);
+      dev.style.transform = `translate(-50%, calc(-50% + ${top / 2}px)) scale(${s})`;
+    }
+
+    // ---------- save ----------
+    const SAVE_URL = `api/save?slot=${G.slot}`;
+    function lamp(state, text) {
+      const led = $('#led');
+      if (led) { led.classList.remove('ok', 'busy', 'fail'); led.classList.add(state); }
+      if (text !== undefined) $('#msg').textContent = text;
+    }
+    async function serverSave() {
+      try {
+        const r = await fetch(SAVE_URL, { cache: 'no-store' });
+        if (r.ok) return new Uint8Array(await r.arrayBuffer());
+        if (r.status === 404) return null;
+      } catch (e) {}
+      return undefined;  // unreachable
+    }
+    async function upload() {
+      const data = M.getSave();
+      if (!data || !data.length) return;
+      lamp('busy');
+      try {
+        const r = await fetch(SAVE_URL, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: data.slice() });
+        lamp(r.ok ? 'ok' : 'fail', r.ok ? '' : '서버 저장 실패 — 이 기기에만 저장됨');
+      } catch (e) {
+        lamp('fail', '서버에 연결 안 됨 — 이 기기에만 저장됨');
+      }
+      M.FSSync();
+    }
+
+    // ---------- input ----------
+    function bindInput() {
+      const press = (k, on) => {
+        const el = document.querySelector(`[data-k="${k}"]`);
+        if (el) el.classList.toggle('on', on);
+        on ? M.buttonPress(k) : M.buttonUnpress(k);
+      };
+      document.querySelectorAll('[data-k]').forEach((el) => {
+        const k = el.dataset.k;
+        el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture?.(e.pointerId); press(k, true); });
+        for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, () => press(k, false));
+      });
+      const KEYS = { ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+                     KeyX: 'A', KeyZ: 'B', Enter: 'Start', Tab: 'Select', KeyA: 'L', KeyS: 'R' };
+      M.toggleInput(false);  // keyboard goes through the same path as touch
+      addEventListener('keydown', (e) => {
+        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (!e.repeat) nextSpeed(); return; }
+        const k = KEYS[e.code];
+        if (!k) return;
+        e.preventDefault();
+        if (!e.repeat) press(k, true);
+      });
+      addEventListener('keyup', (e) => { const k = KEYS[e.code]; if (k) press(k, false); });
+    }
+    let speedIdx = 0;
+    function nextSpeed() {
+      speedIdx = (speedIdx + 1) % SPEEDS.length;
+      M.setFastForwardMultiplier(SPEEDS[speedIdx]);
+      const b = $('#speed');
+      b.textContent = `×${SPEEDS[speedIdx]}`;
+      b.classList.toggle('fast', SPEEDS[speedIdx] > 1);
+    }
+
+    // sound needs a touch or key first (browser rule); the first screen calls these from its own touch
+    let M = null;
+    window.unlockAudio = () => { try { M && M.resumeAudio(); } catch (e) {} };
+    window.setPreviewSound = (on) => { try { if (!M) return; M.setVolume(on ? 1 : 0); if (on) M.resumeAudio(); } catch (e) {} };
+    for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => window.unlockAudio(), { capture: true });
+
+    // ---------- start ----------
+    (async () => {
+      const f = await loadFrame();
+      build(f);
+      M = await mGBA({ canvas: $('#screen') });
+      await M.FSInit();
+      M.setCoreSettings({ autoSaveStateEnable: false, restoreAutoSaveStateOnLoad: false, rewindEnable: false });
+      const paths = M.filePaths();
+      const romPath = `${paths.gamePath}/${G.rom}`;
+      const savePath = `${paths.savePath}/${G.rom.replace(/\.\w+$/, '')}.sav`;
+      const rom = new Uint8Array(await (await fetch('roms/' + G.rom)).arrayBuffer());
+      M.FS.writeFile(romPath, rom);
+
+      if (PREVIEW) {
+        M.setVolume(0);
+        // a throwaway save path so the first screen never touches the real save
+        M.loadGame(romPath, '/preview.sav');
+        skipToTitle();
+        return;
+      }
+
+      const srv = await serverSave();
+      if (srv) {
+        M.FS.writeFile(savePath, srv);
+        lamp('ok');
+      } else if (srv === null) {
+        lamp('ok', '새 게임');
+        setTimeout(() => lamp('ok', ''), 3000);
+      } else {
+        lamp('fail', '서버에 연결 안 됨 — 이 기기의 세이브로');
+      }
+      if (!M.loadGame(romPath)) { $('#msg').textContent = 'ROM을 불러오지 못했습니다'; return; }
+      bindInput();
+      let t = 0;
+      M.addCoreCallbacks({ saveDataUpdatedCallback: () => { clearTimeout(t); t = setTimeout(upload, 1000); } });
+      // a save the server does not have yet (played on this device while offline) goes up now
+      if (srv === null && M.getSave()?.some((b) => b !== 0xff && b !== 0)) upload();
+      $('#fadein').classList.add('off');
+    })();
+
+    function skipToTitle() {
+      const s = PREVIEW_SKIP[id];
+      let frames = 0;
+      M.setFastForwardMultiplier(8);
+      M.addCoreCallbacks({ videoFrameEndedCallback: () => {
+        frames++;
+        if (frames === s.frames) {
+          M.setFastForwardMultiplier(1);
+          M.buttonPress(s.button);
+          setTimeout(() => {
+            M.buttonUnpress(s.button);
+            setTimeout(() => parent.postMessage({ previewTitle: id }, location.origin), 400);
+            // a still of the title screen for the side slides of the first screen
+            setTimeout(() => {
+              try {
+                const name = `title_${id}.png`;
+                if (!M.screenshot(name)) return;
+                const png = M.FS.readFile(`${M.filePaths().screenshotsPath}/${name}`);
+                const fr = new FileReader();
+                fr.onload = () => parent.postMessage({ previewShot: id, png: fr.result }, location.origin);
+                fr.readAsDataURL(new Blob([png], { type: 'image/png' }));
+              } catch (e) {}
+            }, 1500);
+          }, 120);
+        }
+      } });
+    }
+
+    $('#home').addEventListener('click', async () => {
+      if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
+      location.href = './';
+    });
+    $('#speed').addEventListener('click', () => M && nextSpeed());
+  </script>
 </body>
+</html>

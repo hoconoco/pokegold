@@ -36,3 +36,6 @@
 # web shelf: cartridge and box photos (the art is Nintendo's), deployed but not committed
 web/carts/
 web/boxes/
+# web player: ROMs and device frame photos are copied in at deploy time, never committed
+web/roms/
+web/frames/

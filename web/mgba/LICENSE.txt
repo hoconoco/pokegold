@@ -1,0 +1,8 @@
+mgba.js / mgba.wasm — mGBA 2.6.0 compiled to WebAssembly, npm package @thenick775/mgba-wasm 2.6.0
+(sha1 of the package tarball a380efb4722ca55ee27e23148c8458e52a7526e5), files used unmodified.
+
+mGBA is Copyright (c) Jeffrey Pfau and contributors, licensed under the Mozilla Public License 2.0:
+https://mozilla.org/MPL/2.0/
+
+Source code of this build: https://github.com/thenick775/mgba/tree/feature/wasm
+Upstream mGBA: https://github.com/mgba-emu/mgba

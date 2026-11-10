@@ -1,10 +1,12 @@
 """Serve the web player and keep the game save on the server.
 
-- GET  /            files from --web-dir (index.html, emulator, ROM)
-- GET  /api/save?slot=kr|en|kr_silver|en_silver    current save of that ROM (404 if none yet)
-- PUT  /api/save?slot=kr|en    replace it; the previous one is kept in backups/
+- GET  /            files from --web-dir (index.html, emulator, ROMs), with the cross-origin isolation
+                     headers the threaded mGBA web core needs (COOP same-origin, COEP require-corp)
+- GET  /api/save?slot=<slot>    current save of that game (404 if none yet)
+- PUT  /api/save?slot=<slot>    replace it; the previous one is kept in backups/
                                (newest BACKUP_KEEP files per slot)
-  The English save keeps its first name save.sav; the Korean one is save-kr.sav.
+  Slots and files: SLOTS below. Gold/Silver Korean keep their first names (kr, kr_silver), the
+  English ones stay readable but the site no longer offers them.
 
 No login here: it listens on 127.0.0.1 only and Caddy puts basicauth in front.
 
@@ -19,30 +21,44 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-MAX_SAVE_BYTES = 64 * 1024  # Gold uses 32 KiB of cartridge RAM
+MAX_SAVE_BYTES = 256 * 1024  # GBA flash saves are 128 KiB (+ mGBA footer); Gold uses 32 KiB
 BACKUP_KEEP = 30
+# slot -> (save file, backup name prefix)
+SLOTS = {
+    "en": ("save.sav", "save-2"),
+    "kr": ("save-kr.sav", "save-kr-"),
+    "en_silver": ("save-silver.sav", "save-silver-"),
+    "kr_silver": ("save-kr-silver.sav", "save-kr-silver-"),
+    "yellow": ("save-yellow.sav", "save-yellow-"),
+    "ruby": ("save-ruby.sav", "save-ruby-"),
+    "sapphire": ("save-sapphire.sav", "save-sapphire-"),
+    "firered": ("save-firered.sav", "save-firered-"),
+    "leafgreen": ("save-leafgreen.sav", "save-leafgreen-"),
+    "emerald": ("save-emerald.sav", "save-emerald-"),
+}
 
 
 class Handler(SimpleHTTPRequestHandler):
     data_dir: Path
 
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
+                      ".wasm": "application/wasm", ".js": "text/javascript", ".webp": "image/webp"}
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
         super().end_headers()
 
     def _slot(self):
         """(save file, backup name prefix) for ?slot=, or None for an unknown slot."""
         query = parse_qs(urlsplit(self.path).query)
         slot = query.get("slot", ["en"])[0]
-        if slot == "en":
-            return self.data_dir / "save.sav", "save-2"
-        if slot == "kr":
-            return self.data_dir / "save-kr.sav", "save-kr-"
-        if slot == "en_silver":
-            return self.data_dir / "save-silver.sav", "save-silver-"
-        if slot == "kr_silver":
-            return self.data_dir / "save-kr-silver.sav", "save-kr-silver-"
-        return None
+        if slot not in SLOTS:
+            return None
+        name, prefix = SLOTS[slot]
+        return self.data_dir / name, prefix
 
     def do_GET(self):
         if self.path.split("?")[0] != "/api/save":

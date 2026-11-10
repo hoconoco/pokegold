@@ -21,24 +21,28 @@
   - 원본 ROM은 `.build/kr/baserom_kr.gbc`(git 밖). 패치 위치는 바이트 패턴(주소 부분 제외)이 한 곳에만 맞아야 하고, 원래 바이트를 확인한 뒤 쓴다
   - 옮긴 것: 이로치(야생·배회·선물·박스 선물·알), 파티 전원 경험치, 반대 지역 출현(영어판에서 섞은 칸의 포켓몬만 복사 — 한국어판 출현 데이터는 레벨 등 33바이트가 원래 달라 나머지는 한국어판 것을 유지)
   - 전설 6마리: 영어판과 같은 자리·레벨. 한국어판은 글자 인코딩이 달라 말 걸 때 대사 없이 울음소리 후 바로 전투. 한국어판 스크립트 명령은 opentext 이후 번호가 1씩 크다(루기아 스크립트로 확인)
-- 웹 첫 화면(`web/index.html`)은 고른 ROM의 진짜 시작 화면 — `play.html?preview=1`을 틀에 띄운다(소리·세이브·버튼 없음, 인트로는 빨리감기 뒤 게임 시간 12초에 START로 건너뜀). ◀ ▶·방향키·밀기로 네 판(골드·실버 × 한국어·영어)을 바꾸고, 화면·Enter·`시작`으로 그 판(`play.html?ver=silver&lang=en` 형태)을 연다. 게임 화면 오른쪽 위 `판 선택`으로 돌아온다 — 세이브는 판별로 따로(`api/save?slot=kr|en|kr_silver|en_silver`)
+- 웹은 개조판 여덟 판(옐로·골드·실버·루비·사파이어·파이어레드·리프그린·에메랄드, 한국어)을 mGBA 웹판으로 돌린다 — 아래 '웹에서 실행'
 
 ## 빌드
 
 - Docker 이미지(한 번만): `docker build -t pokegold-build .build` — `.build/Dockerfile`은 git 밖(`.git/info/exclude`)
 - 빌드: `MSYS_NO_PATHCONV=1 docker run --rm -v "C:/Users/nojin_ijryw4c/repos/pokegold:/src" pokegold-build make gold`
-- 웹에 반영: `cp pokegold.gbc web/`
 
 ## 웹에서 실행
 
-- 접속: https://gold.3-35-233-70.sslip.io — 에이전트 타운과 같은 아이디·비밀번호
+- 접속: https://gold.3-35-233-70.sslip.io — 에이전트 타운과 같은 아이디·비밀번호, 스마트폰 세로 화면 기준
   - ssafy_schedule EC2(에이전트 타운과 공용)의 Caddy `gold.` 블록 → 서비스 `pokegold-web`(127.0.0.1:8789, `tools/web_server.py`)
-  - 세이브는 서버 `/srv/pokegold/data/save.sav`, 덮어쓸 때마다 이전 것을 `backups/`에 30개까지 둔다 — 어느 기기에서든 이어서 한다
-  - 화면 왼쪽 위에 세이브 상태(서버 저장 시각)가 나온다. 서버에 닿지 않으면 그 브라우저에만 저장한다
-- 배포: `bash C:/Users/nojin_ijryw4c/repos/pokegold/tools/deploy_ec2.sh` — 커밋된 `web/`·`tools/web_server.py`와 빌드된 `pokegold.gbc`를 올리고 sha256을 맞춘다(세이브는 건드리지 않음). `--setup`은 처음 한 번(폴더·서비스·Caddy 블록)
-- 로컬 시험: `python -X utf8 tools/web_server.py --web-dir web --data-dir <임시폴더> --port 8790`
-- 키: 방향키, X=A, Z=B, Enter=Start, Tab=Select, Backspace=되감기
-- 빨리감기(3배)는 켜고 끄는 스위치 — 오른쪽 위 `▶▶` 버튼 또는 왼쪽 Shift
-- 화면은 창 크기에 맞춰 10:9 비율로 맞춰진다. 터치 기기는 화면 패드가 나오고, 세로 모드에서는 게임 화면이 패드 위에 놓인다
-- 세이브는 브라우저 localStorage(`extram`)에 저장된다
-- 에뮬레이터: binjgb 웹 빌드(MIT, `web/LICENSE.binjgb`·`web/LICENSE.gbstudio`)
+- 첫 화면(`web/index.html`): 여덟 판 발매순 슬라이드
+  - 가운데 판은 그 ROM을 실제로 돌린다(`play.html?game=<판>&preview=1` — 세이브 없음, 인트로는 빨리감기 뒤 판별 프레임 수에 START로 건너뜀 `PREVIEW_SKIP`) — 시작 화면과 BGM, 소리는 첫 터치 뒤부터
+  - 양옆은 그 판 시작 화면의 정지 화면(가운데 왔을 때 떠서 그 브라우저 localStorage에), 아직 없으면 판 이름
+  - 밀기·방향키·옆 판 누르기로 넘기고, 가운데를 누르면 'OO 버전을 시작하시겠습니까?' → 예면 `play.html?game=<판>`
+- 플레이 화면(`web/play.html`)
+  - 틀 사진(`web/frames/<gbc|gba>.webp`, 사용자 사진, git 밖)이 있는 판은 사진 위에 게임 화면·누르는 자리·전원 등(세이브 상태)을 겹친다 — 지금 골드·실버는 틀 없이(사용자 결정), GBA 판은 사진 대기
+  - 틀이 없으면 게임 화면 아래 예전 웹 플레이어 모양 버튼(회색 십자키, 자주색 A·B, 회색 SELECT·START, GBA는 L·R)
+  - 오른쪽 위: `판 선택`(세이브 올리고 첫 화면으로), 속도 `×1 → ×2 → ×3`(왼쪽 Shift도) — 빨라져도 소리는 그대로 나온다(mGBA)
+  - 키: 방향키, X=A, Z=B, Enter=Start, Tab=Select, A=L, S=R
+- 세이브: 판마다 서버 칸 하나(`api/save?slot=` — 골드 `kr`, 실버 `kr_silver`, 나머지는 판 이름), 게임이 저장하면 1초 뒤 올린다, 덮어쓸 때마다 이전 것을 `backups/`에 30개까지
+  - 서버에 닿지 않으면 그 브라우저(IndexedDB)에만 남고 전원 등이 빨강
+- 배포: `bash C:/Users/nojin_ijryw4c/repos/pokegold/tools/deploy_ec2.sh` — 페이지·mGBA·여덟 ROM(골드·실버는 여기서 `kr_patch.py`로 다시 만들고, GBA 판은 `../pokefirered/.build/common15`의 보낸 빌드)·틀 사진을 올리고 sha256을 맞춘다(세이브는 건드리지 않음). `--setup`은 처음 한 번(폴더·서비스·Caddy 블록)
+- 로컬 시험: ROM을 `web/roms/<판>.gba|gbc`에 두고 `python -X utf8 tools/web_server.py --web-dir web --data-dir <임시폴더> --port 8790`
+- 에뮬레이터: mGBA 2.6.0 웹판(`@thenick775/mgba-wasm`, MPL-2.0, `web/mgba/LICENSE.txt`) — 스레드를 써서 서버가 COOP·COEP 헤더를 붙인다(`web_server.py`)

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Put the web player on the ssafy_schedule EC2 (shared with agent_town) at https://gold.3-35-233-70.sslip.io
-#   files: web/* + pokegold.gbc (English) + .build/kr/pokegold_kr.gbc (Korean, rebuilt here with
-#   tools/kr_patch.py from .build/kr/baserom_kr.gbc) -> /srv/pokegold/web, tools/web_server.py -> /srv/pokegold/
-#   save + backups stay in /srv/pokegold/data (never touched here)
+#   files: web pages + mGBA web core (web/mgba/) + the eight Korean mod ROMs (roms/<game>.gba|gbc:
+#   Gold/Silver rebuilt here with tools/kr_patch.py, the GBA ones copied from the REA_repo builds in
+#   ../pokefirered/.build/common15) + device frame photos if present (web/frames/*.webp, owner's photos,
+#   not in git) -> /srv/pokegold/web, tools/web_server.py -> /srv/pokegold/
+#   save + backups stay in /srv/pokegold/data (never touched here); files no longer used stay on the server
 #   scp to <file>.new -> mv in one go -> restart pokegold-web -> compare sha256 with local
 # --setup (first time only): create /srv/pokegold, the pokegold-web systemd unit (127.0.0.1:8789)
 #   and append the gold. site to /etc/caddy/Caddyfile with the same basicauth line as agent_town
@@ -17,9 +19,16 @@ O=(-i "$SSAFY_SCHEDULE_KEY" -o BatchMode=yes)
 SITE=gold.3-35-233-70.sslip.io
 PORT=8789
 
-WEB=(web/index.html web/play.html web/simple.js web/simple.css web/reset.css web/binjgb.js web/binjgb.wasm
-     web/favicon.svg web/LICENSE.binjgb web/LICENSE.gbstudio)
-[ -f pokegold.gbc ] && [ -f pokesilver.gbc ] || { echo "pokegold.gbc / pokesilver.gbc not built (make gold silver)"; exit 1; }
+B=../pokefirered/.build/common15
+# "local file|path under /srv/pokegold/web"
+PAIRS=("web/index.html|index.html" "web/play.html|play.html" "web/favicon.svg|favicon.svg"
+       "web/mgba/mgba.js|mgba/mgba.js" "web/mgba/mgba.wasm|mgba/mgba.wasm" "web/mgba/LICENSE.txt|mgba/LICENSE.txt"
+       "$B/yellow/pokemon_yellow_kr_0.8.0.gba|roms/yellow.gba"
+       ".build/kr/pokegold_kr.gbc|roms/gold.gbc" ".build/kr/pokesilver_kr.gbc|roms/silver.gbc"
+       "$B/ruby/ruby_kr_mod_2.1.0.gba|roms/ruby.gba" "$B/sapphire/sapphire_kr_mod_2.1.0.gba|roms/sapphire.gba"
+       "$B/fr/firered_kr_mod_2.1.0.gba|roms/firered.gba" "$B/lg/leafgreen_kr_mod_2.1.0.gba|roms/leafgreen.gba"
+       "$B/em/emerald_kr_mod_2.2.0.gba|roms/emerald.gba")
+for f in web/frames/*.webp; do [ -f "$f" ] && PAIRS+=("$f|frames/$(basename "$f")"); done
 if [ -n "$(git status --porcelain -- web tools/web_server.py tools/kr_patch.py)" ]; then
   echo "uncommitted changes, not deploying:"; git status --short -- web tools/web_server.py tools/kr_patch.py; exit 1
 fi
@@ -68,30 +77,17 @@ fi
 REMOTE
 fi
 
-FILES=("${WEB[@]}" pokegold.gbc .build/kr/pokegold_kr.gbc pokesilver.gbc .build/kr/pokesilver_kr.gbc tools/web_server.py)
-for f in "${WEB[@]}"; do scp "${O[@]}" -q "$f" "$H:/srv/pokegold/web/$(basename "$f").new"; done
-scp "${O[@]}" -q pokegold.gbc "$H:/srv/pokegold/web/pokegold.gbc.new"
-scp "${O[@]}" -q .build/kr/pokegold_kr.gbc "$H:/srv/pokegold/web/pokegold_kr.gbc.new"
-scp "${O[@]}" -q pokesilver.gbc "$H:/srv/pokegold/web/pokesilver.gbc.new"
-scp "${O[@]}" -q .build/kr/pokesilver_kr.gbc "$H:/srv/pokegold/web/pokesilver_kr.gbc.new"
+for pr in "${PAIRS[@]}"; do [ -f "${pr%%|*}" ] || { echo "missing: ${pr%%|*}"; exit 1; }; done
+ssh "${O[@]}" "$H" "mkdir -p /srv/pokegold/web/mgba /srv/pokegold/web/roms /srv/pokegold/web/frames"
+for pr in "${PAIRS[@]}"; do scp "${O[@]}" -q "${pr%%|*}" "$H:/srv/pokegold/web/${pr#*|}.new"; done
 scp "${O[@]}" -q tools/web_server.py "$H:/srv/pokegold/web_server.py.new"
-# cartridge and box photos for the first screen (web/carts/*.png, web/boxes/*.png, git-ignored, optional)
-CARTS=(); for f in web/carts/*.png web/boxes/*.png; do [ -f "$f" ] && CARTS+=("$f"); done
-if [ ${#CARTS[@]} -gt 0 ]; then
-  ssh "${O[@]}" "$H" "mkdir -p /srv/pokegold/web/carts /srv/pokegold/web/boxes"
-  for f in "${CARTS[@]}"; do scp "${O[@]}" -q "$f" "$H:/srv/pokegold/${f}.new"; done
-fi
-R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && shopt -s nullglob && for f in web/*.new web/carts/*.new web/boxes/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
+R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && shopt -s nullglob && for f in web/*.new web/*/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
   && sudo systemctl restart pokegold-web && sleep 2 && systemctl is-active pokegold-web \
-  && cd web && sha256sum *.* && { [ ! -d carts ] || sha256sum carts/*; } && { [ ! -d boxes ] || sha256sum boxes/*; } && cd .. && sha256sum web_server.py")
+  && cd web && sha256sum *.* mgba/* roms/* && { ls frames/* >/dev/null 2>&1 && sha256sum frames/* || true; } && cd .. && sha256sum web_server.py")
 echo "$R"
 ok=1
-for f in "${FILES[@]}"; do
-  name=$(basename "$f")
-  [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$(echo "$R" | grep " $name\$" | cut -d' ' -f1)" ] || { echo "sha256 differs: $f"; ok=0; }
-done
-for f in "${CARTS[@]}"; do
-  name=${f#web/}
+for pr in "${PAIRS[@]}" "tools/web_server.py|web_server.py"; do
+  f=${pr%%|*}; name=${pr#*|}
   [ "$(sha256sum "$f" | cut -d' ' -f1)" = "$(echo "$R" | grep " $name\$" | cut -d' ' -f1)" ] || { echo "sha256 differs: $f"; ok=0; }
 done
 [ $ok = 1 ] && echo "deployed: $(git log -1 --format='%h %s') -> https://$SITE" || exit 1

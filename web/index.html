@@ -1,174 +1,256 @@
 <!DOCTYPE html>
-<!-- mod: first screen — the chosen ROM's own title screen, running live (play.html?preview=1 in a frame:
-     intro fast-forwarded and skipped, no sound, no save). ◀ ▶ (or arrow keys / swipe) switch between the
-     four ROMs; tapping the screen, Enter, Space or the start button opens the real game (play.html). -->
+<!-- mod: first screen — the eight Korean mod builds in release order, one at a time.
+     The middle slide runs that ROM live (play.html?game=<id>&preview=1 in a frame): its own title screen
+     and title music. The slides on either side show a still of their title screen, taken the last time
+     that game was in the middle (kept in this browser only); a game not seen yet shows its name.
+     Swipe, arrow keys or tapping a side slide turns the carousel; tapping the middle asks
+     'OO 버전을 시작하시겠습니까?' and 예 opens play.html?game=<id>.
+     Sound: browsers allow it only after the first touch or key, so a small hint shows until then. -->
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <title>포켓몬스터 골드·실버</title>
-  <script>
-    // old links (/?ver=silver, /?lang=en) go straight to the game
-    if (/[?&](ver|lang)=/.test(location.search)) location.replace('play.html' + location.search);
-  </script>
+  <title>포켓몬스터</title>
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
     body {
-      background: #000;
-      color: #f0f0f0;
+      background: radial-gradient(ellipse at 50% 38%, #222831 0%, #0b0d10 72%) fixed, #0b0d10;
+      color: #ece8df;
       font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      -webkit-user-select: none;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
     }
-    /* 10:9 Game Boy screen, as large as fits above the selector */
-    #screen {
-      position: relative;
-      width: min(100vw, calc((100dvh - 96px) * 10 / 9));
-      aspect-ratio: 10 / 9;
+    #car { position: fixed; inset: 0; --cw: min(74vw, 520px); --step: calc(var(--cw) * 0.8); }
+    .slide {
+      position: absolute; left: 50%; top: 42%;
+      width: var(--cw);
+      aspect-ratio: var(--ar);
+      transform: translate(-50%, -50%) translateX(calc(var(--off) * var(--step))) scale(var(--sc));
+      transition: transform 0.45s cubic-bezier(.2,.8,.2,1), filter 0.45s ease, opacity 0.45s ease;
+      filter: blur(var(--blur)) brightness(var(--dim));
+      opacity: var(--op);
       background: #000;
+      border-radius: 4px;
+      box-shadow: 0 18px 44px rgba(0,0,0,0.6);
+      overflow: hidden;
       cursor: pointer;
     }
-    #screen iframe {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      border: 0;
-      pointer-events: none;
+    .slide img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+    .slide .blank {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      font: 700 22px "Malgun Gothic", sans-serif; color: rgba(255,255,255,0.55);
+      background: linear-gradient(160deg, #2a3038, #15181d);
     }
-    /* black cover while the intro is skipped */
-    #cover {
-      position: absolute; inset: 0;
-      background: #000;
-      display: flex; align-items: center; justify-content: center;
-      transition: opacity 0.35s ease;
-      color: #777; font-size: 14px; letter-spacing: 0.3em;
+    .slide iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+    .slide iframe.ready { opacity: 1; }
+    #cap {
+      position: fixed; left: 0; right: 0; top: calc(42% + var(--half) + 22px);
+      text-align: center; display: grid; gap: 4px;
     }
-    #cover.off { opacity: 0; pointer-events: none; }
-    #fade { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.4s ease-in; }
-    #fade.on { opacity: 1; }
-
-    #bar {
-      height: 96px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
+    #cap .name { font: 700 24px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; letter-spacing: 0.02em; }
+    #cap .meta { font-size: 13px; color: #8f98a3; }
+    #dots { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); display: flex; justify-content: center; gap: 7px; }
+    #dots i { width: 6px; height: 6px; border-radius: 50%; background: #3b424c; }
+    #dots i.on { background: #ece8df; }
+    #hint {
+      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); left: 50%; transform: translateX(-50%);
+      font-size: 12px; color: #8f98a3; background: rgba(0,0,0,0.35); border: 1px solid #2d333c;
+      padding: 4px 12px; border-radius: 999px; transition: opacity 0.4s;
     }
-    #bar button {
-      font: inherit;
-      border: 0;
-      cursor: pointer;
-      touch-action: manipulation;
+    #hint.off { opacity: 0; }
+    /* confirm, in the games' own text-box style */
+    #scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: grid; place-items: center; z-index: 5; }
+    #scrim[hidden] { display: none; }
+    .dialog {
+      width: min(88vw, 440px);
+      background: #f8f8f0; color: #181818;
+      border: 6px double #181818; border-radius: 6px;
+      box-shadow: 0 0 0 4px #f8f8f0, 0 14px 0 4px rgba(0,0,0,0.35);
+      padding: 18px 20px 14px;
+      font: 700 17px/1.55 "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     }
-    .arrow {
-      width: 44px; height: 44px;
-      border-radius: 50%;
-      background: #2a2d31;
-      color: #ddd;
-      font-size: 18px;
+    .dialog .opts { display: flex; justify-content: flex-end; gap: 22px; margin-top: 14px; }
+    .dialog button {
+      font: 700 17px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; color: #181818;
+      background: none; border: 0; padding: 4px 4px 4px 20px; position: relative; touch-action: manipulation;
     }
-    .arrow:hover { background: #3a3e44; }
-    #name {
-      min-width: 9.5em;
-      text-align: center;
-      font-weight: 700;
-      font-size: 17px;
-    }
-    #name small { display: block; font-weight: 400; font-size: 12px; color: #999; margin-top: 2px; }
-    #start {
-      padding: 10px 18px;
-      border-radius: 22px;
-      background: #c9a227;
-      color: #1a1a1a;
-      font-weight: 700;
-      font-size: 15px;
-    }
-    #start.silver { background: #b9bec5; }
-    #start:hover { filter: brightness(1.1); }
+    .dialog button.sel::before { content: "▶"; position: absolute; left: 0; top: 7px; font-size: 12px; }
+    #white { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.4s ease-in; z-index: 9; }
+    #white.on { opacity: 1; }
   </style>
 </head>
 <body>
-  <div id="screen" title="눌러서 시작">
-    <iframe id="preview" title="시작 화면" tabindex="-1"></iframe>
-    <div id="cover">· · ·</div>
-    <div id="fade"></div>
+  <div id="car"></div>
+  <div id="cap"><div class="name" id="name"></div><div class="meta" id="meta"></div></div>
+  <div id="dots"></div>
+  <div id="hint">♪ 화면을 누르면 음악</div>
+  <div id="scrim" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="ask">
+      <div id="ask"></div>
+      <div class="opts"><button id="yes" class="sel">예</button><button id="no">아니오</button></div>
+    </div>
   </div>
-  <div id="bar">
-    <button class="arrow" id="prev" aria-label="이전 판">◀</button>
-    <div id="name"></div>
-    <button class="arrow" id="next" aria-label="다음 판">▶</button>
-    <button id="start">시작</button>
-  </div>
+  <div id="white"></div>
 
   <script>
+    // release order; ar = screen aspect (Game Boy Color 10:9, Advance 3:2)
     const GAMES = [
-      { q: '',                      name: '골드',   sub: '한국어판', silver: false },
-      { q: 'ver=silver',            name: '실버',   sub: '한국어판', silver: true },
-      { q: 'lang=en',               name: 'GOLD',   sub: 'English',  silver: false },
-      { q: 'lang=en&ver=silver',    name: 'SILVER', sub: 'English',  silver: true },
+      { id: 'yellow',    name: '옐로',       meta: '개조판 0.8.0',  ar: '3 / 2' },
+      { id: 'gold',      name: '골드',       meta: '개조판 2차',    ar: '10 / 9' },
+      { id: 'silver',    name: '실버',       meta: '개조판 2차',    ar: '10 / 9' },
+      { id: 'ruby',      name: '루비',       meta: '개조판 2.1.0',  ar: '3 / 2' },
+      { id: 'sapphire',  name: '사파이어',   meta: '개조판 2.1.0',  ar: '3 / 2' },
+      { id: 'firered',   name: '파이어레드', meta: '개조판 2.1.0',  ar: '3 / 2' },
+      { id: 'leafgreen', name: '리프그린',   meta: '개조판 2.1.0',  ar: '3 / 2' },
+      { id: 'emerald',   name: '에메랄드',   meta: '개조판 2.2.0',  ar: '3 / 2' },
     ];
-    let idx = 0;
-    try { idx = Math.min(GAMES.length - 1, Math.max(0, +localStorage.getItem('shelf_idx') || 0)); } catch (e) {}
+    const $ = (s) => document.querySelector(s);
+    const store = {
+      get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    };
+    // start on the game picked last time, else the first one
+    let cur = Math.max(0, GAMES.findIndex((g) => g.id === store.get('shelf_game')));
+    let soundOn = false;
+    let frame = null;
 
-    const frame = document.getElementById('preview');
-    const cover = document.getElementById('cover');
-    let coverTimer = 0;
-    let going = false;
-
-    function show() {
-      const g = GAMES[idx];
-      document.getElementById('name').innerHTML = `${g.name}<small>${g.sub}</small>`;
-      document.getElementById('start').classList.toggle('silver', g.silver);
-      cover.classList.remove('off');
-      frame.src = 'play.html?preview=1' + (g.q ? '&' + g.q : '');
-      clearTimeout(coverTimer);
-      coverTimer = setTimeout(() => cover.classList.add('off'), 8000);  // fallback if no message
-      try { localStorage.setItem('shelf_idx', String(idx)); } catch (e) {}
+    // slides
+    const car = $('#car');
+    const slides = GAMES.map((g, i) => {
+      const el = document.createElement('div');
+      el.className = 'slide';
+      el.style.setProperty('--ar', g.ar);
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', `포켓몬스터 ${g.name}`);
+      el.addEventListener('click', () => {
+        const d = rel(i);
+        if (d === 0) ask(); else go(d);
+      });
+      car.appendChild(el);
+      return el;
+    });
+    function still(i) {
+      const g = GAMES[i];
+      const png = store.get('title_' + g.id);
+      return png ? `<img src="${png}" alt="">` : `<div class="blank">${g.name}</div>`;
     }
-    // the frame says when it reached the title screen
+    GAMES.forEach(() => $('#dots').appendChild(document.createElement('i')));
+
+    function rel(i) {
+      const n = GAMES.length;
+      let d = (i - cur + n) % n;
+      if (d > n / 2) d -= n;
+      return d;
+    }
+    function layout() {
+      slides.forEach((el, i) => {
+        const d = rel(i);
+        const near = Math.abs(d) <= 1;
+        el.style.setProperty('--off', d);
+        el.style.setProperty('--sc', d === 0 ? 1 : 0.7);
+        el.style.setProperty('--blur', d === 0 ? '0px' : '3px');
+        el.style.setProperty('--dim', d === 0 ? 1 : 0.6);
+        el.style.setProperty('--op', near ? 1 : 0);
+        el.style.zIndex = d === 0 ? 2 : 1;
+        el.style.pointerEvents = near ? '' : 'none';
+        if (d !== 0) el.innerHTML = still(i);
+      });
+      const g = GAMES[cur];
+      $('#name').textContent = `포켓몬스터 ${g.name}`;
+      $('#meta').textContent = g.meta;
+      document.documentElement.style.setProperty('--half', `${slides[cur].offsetHeight / 2}px`);
+      [...$('#dots').children].forEach((d, i) => d.classList.toggle('on', i === cur));
+      store.set('shelf_game', g.id);
+      live();
+    }
+    // the middle slide runs its ROM; start it a moment after the carousel settles
+    let liveTimer = 0;
+    function live() {
+      clearTimeout(liveTimer);
+      if (frame) { frame.remove(); frame = null; }
+      const el = slides[cur];
+      el.innerHTML = still(cur);
+      liveTimer = setTimeout(() => {
+        frame = document.createElement('iframe');
+        frame.allow = 'autoplay';
+        frame.tabIndex = -1;
+        frame.title = '시작 화면';
+        frame.src = `play.html?game=${GAMES[cur].id}&preview=1`;
+        el.appendChild(frame);
+      }, 350);
+    }
     addEventListener('message', (e) => {
-      if (e.source === frame.contentWindow && e.data && e.data.previewTitle) {
-        clearTimeout(coverTimer);
-        setTimeout(() => cover.classList.add('off'), 250);
+      if (e.origin !== location.origin || !frame || e.source !== frame.contentWindow) return;
+      if (e.data.previewTitle) {
+        frame.classList.add('ready');
+        if (soundOn) frame.contentWindow.setPreviewSound(true);
+      }
+      if (e.data.previewShot && e.data.png) store.set('title_' + e.data.previewShot, e.data.png);
+    });
+    function go(d) { cur = (cur + d + GAMES.length) % GAMES.length; layout(); }
+
+    // first touch or key: sound on (browser rule)
+    function unlock() {
+      if (soundOn) return;
+      soundOn = true;
+      $('#hint').classList.add('off');
+      try { frame && frame.contentWindow.setPreviewSound(true); } catch (e) {}
+    }
+    addEventListener('pointerdown', unlock, { capture: true });
+    addEventListener('keydown', unlock, { capture: true });
+
+    // swipe
+    let sx = null, sy = null;
+    addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+    addEventListener('pointerup', (e) => {
+      if (sx === null || !$('#scrim').hidden) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      sx = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+        go(dx < 0 ? 1 : -1);
+        suppressClick = true; setTimeout(() => { suppressClick = false; }, 0);
       }
     });
-    function step(d) { idx = (idx + d + GAMES.length) % GAMES.length; show(); }
-    function go() {
-      if (going) return;
-      going = true;
-      document.getElementById('fade').classList.add('on');
-      const g = GAMES[idx];
-      setTimeout(() => { location.href = 'play.html' + (g.q ? '?' + g.q : ''); }, 420);
+    let suppressClick = false;
+    addEventListener('click', (e) => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+    // confirm
+    let sel = 'yes';
+    function setSel(s) { sel = s; $('#yes').classList.toggle('sel', s === 'yes'); $('#no').classList.toggle('sel', s === 'no'); }
+    function ask() {
+      $('#ask').textContent = `포켓몬스터 ${GAMES[cur].name} 버전을 시작하시겠습니까?`;
+      $('#scrim').hidden = false; setSel('yes');
     }
-
-    document.getElementById('prev').addEventListener('click', () => step(-1));
-    document.getElementById('next').addEventListener('click', () => step(1));
-    document.getElementById('start').addEventListener('click', go);
-    document.getElementById('screen').addEventListener('click', go);
+    function close() { $('#scrim').hidden = true; }
+    function start() {
+      close();
+      $('#white').classList.add('on');
+      setTimeout(() => { location.href = `play.html?game=${GAMES[cur].id}`; }, 420);
+    }
+    $('#yes').addEventListener('click', start);
+    $('#no').addEventListener('click', close);
+    $('#yes').addEventListener('pointerenter', () => setSel('yes'));
+    $('#no').addEventListener('pointerenter', () => setSel('no'));
+    $('#scrim').addEventListener('click', (e) => { if (e.target.id === 'scrim') close(); });
     addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') { step(-1); e.preventDefault(); }
-      else if (e.key === 'ArrowRight') { step(1); e.preventDefault(); }
-      else if (e.key === 'Enter' || e.key === ' ') { go(); e.preventDefault(); }
+      if (!$('#scrim').hidden) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { setSel(sel === 'yes' ? 'no' : 'yes'); e.preventDefault(); }
+        else if (e.key === 'Enter' || e.key === ' ') { (sel === 'yes' ? start : close)(); e.preventDefault(); }
+        else if (e.key === 'Escape') close();
+        return;
+      }
+      if (e.key === 'ArrowLeft') go(-1);
+      else if (e.key === 'ArrowRight') go(1);
+      else if (e.key === 'Enter' || e.key === ' ') { ask(); e.preventDefault(); }
     });
-    // swipe on phones
-    let sx = null;
-    addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
-    addEventListener('touchend', (e) => {
-      if (sx === null) return;
-      const dx = e.changedTouches[0].clientX - sx;
-      sx = null;
-      if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1);
-    });
-    // back button: undo the fade
-    addEventListener('pageshow', () => { going = false; document.getElementById('fade').classList.remove('on'); });
+    // back button: undo the white fade and start the middle slide again
+    addEventListener('pageshow', (e) => { $('#white').classList.remove('on'); if (e.persisted) live(); });
 
-    show();
+    layout();
+    addEventListener('resize', layout);
   </script>
 </body>
 </html>
