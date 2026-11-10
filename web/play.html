@@ -4,7 +4,8 @@
      The device frame is the owner's photo of the handheld (frames/<gbc|gba>.webp, not in git): the game
      picture covers the photo's screen, the photo's buttons are the touch targets, the photo's power lamp
      shows the save state. A game whose frame photo is missing gets the picture and plain buttons.
-     Save: one server slot per game (api/save?slot=), uploaded about a second after the game writes it;
+     Save: one server slot per game (api/save?slot=), uploaded about a second after the game writes it
+     (Gold/Silver: only when the game data part changed — they write scratch to save RAM all the time);
      the browser's own copy (IndexedDB) is the fallback when the server cannot be reached.
      play.html?game=<id>&preview=1 — for the first screen: no frame, no save, sound off until the parent
      page turns it on, the intro is fast-forwarded and skipped to the title screen (PREVIEW_SKIP). -->
@@ -136,10 +137,13 @@
   <script type="module">
     import mGBA from './mgba/mgba.js';
 
+    // Korean Gold/Silver save RAM: banks 1-3 hold the game (an in-game save always rewrites bank 1),
+    // and a real save has check value 99 at bank 1 $A008 (ValidateSave in both ROMs)
+    const GB2_SAVE = { data: [0x2000, 0x8000], check: [0x2008, 99] };
     const GAMES = {
       yellow:    { name: '옐로',       rom: 'yellow.gba',    slot: 'yellow',    frame: 'gba', c1: '#f7d348', c2: '#d9a514' },
-      gold:      { name: '골드',       rom: 'gold.gbc',      slot: 'kr',        frame: null, c1: '#e7c55a', c2: '#b38a1c' },
-      silver:    { name: '실버',       rom: 'silver.gbc',    slot: 'kr_silver', frame: null, c1: '#dfe3e8', c2: '#9ea6af' },
+      gold:      { name: '골드',       rom: 'gold.gbc',      slot: 'kr',        frame: null, c1: '#e7c55a', c2: '#b38a1c', save: GB2_SAVE },
+      silver:    { name: '실버',       rom: 'silver.gbc',    slot: 'kr_silver', frame: null, c1: '#dfe3e8', c2: '#9ea6af', save: GB2_SAVE },
       ruby:      { name: '루비',       rom: 'ruby.gba',      slot: 'ruby',      frame: 'gba', c1: '#d7404c', c2: '#8e1422' },
       sapphire:  { name: '사파이어',   rom: 'sapphire.gba',  slot: 'sapphire',  frame: 'gba', c1: '#3d6fcc', c2: '#183a85' },
       firered:   { name: '파이어레드', rom: 'firered.gba',   slot: 'firered',   frame: 'gba', c1: '#ee6a3f', c2: '#b8331c' },
@@ -344,12 +348,30 @@
       } catch (e) {}
       return undefined;  // unreachable
     }
-    async function upload() {
+    // Gold/Silver also use save RAM bank 0 as scratch (picture decompression, menu window stack), so it
+    // changes whenever they run; an in-game save always writes banks 1-3 (G.save.data).
+    // `sent` is the save the server has: a change outside G.save.data alone is not sent (no junk uploads
+    // pushing real saves out of the server's 30 backups). With nothing to compare yet, the first one seen
+    // becomes `sent` (the scratch written on the title screen, long before the game can be saved).
+    // Starting a new game clears the active box count in bank 1 ($ADAE), so that goes up once.
+    let sent = null;
+    function sameGameData(a, b) {
+      const [lo, hi] = G.save.data;
+      if (!b || a.length < hi || b.length < hi) return false;
+      for (let i = lo; i < hi; i++) if (a[i] !== b[i]) return false;
+      return true;
+    }
+    async function upload(force) {
       const data = M.getSave();
       if (!data || !data.length) return;
+      if (G.save && !force) {
+        if (!sent) { sent = data.slice(); return; }
+        if (sameGameData(data, sent)) return;
+      }
       lamp('busy');
       try {
         const r = await fetch(SAVE_URL, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: data.slice() });
+        if (r.ok) sent = data.slice();
         lamp(r.ok ? 'ok' : 'fail', r.ok ? '' : '서버 저장 실패 — 이 기기에만 저장됨');
       } catch (e) {
         lamp('fail', '서버에 연결 안 됨 — 이 기기에만 저장됨');
@@ -434,10 +456,14 @@
       }
       if (!M.loadGame(romPath)) { $('#msg').textContent = 'ROM을 불러오지 못했습니다'; return; }
       bindInput();
+      // what the server has (offline: this device's copy, which is what it will be compared with)
+      sent = srv || M.getSave()?.slice() || null;
       let t = 0;
       M.addCoreCallbacks({ saveDataUpdatedCallback: () => { clearTimeout(t); t = setTimeout(upload, 1000); } });
       // a save the server does not have yet (played on this device while offline) goes up now
-      if (srv === null && M.getSave()?.some((b) => b !== 0xff && b !== 0)) upload();
+      // (Gold/Silver: only a real save, not blank or leftover save RAM)
+      const local = M.getSave();
+      if (srv === null && local?.some((b) => b !== 0xff && b !== 0) && (!G.save || local[G.save.check[0]] === G.save.check[1])) upload(true);
       $('#fadein').classList.add('off');
     })();
 
