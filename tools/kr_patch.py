@@ -16,6 +16,7 @@ New routines go into the zero-filled tail of the bank that calls them.
 - 2nd stage: 5x exp and prize money, every ball catches, even species odds in grass/water, the other
   version's exclusives in spare wild slots, Prof. Elm trade evolution after the 8th badge (no new text —
   the Korean text encoding is not mapped yet). Korean Silver (AAXK) uses the same code addresses.
+- guide menu: START menu '공략' (tools/kr_guide.py, Korean text with tools/kr_charset.py).
 
 Usage: python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out pokegold_kr.gbc
        python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr_silver.gbc --out pokesilver_kr.gbc
@@ -26,6 +27,8 @@ import hashlib
 import re
 import subprocess
 from pathlib import Path
+
+from kr_guide import patch_guide
 
 BASE_SHA1 = {"c0ff3999e1093e1af59ef3eea3f1bfd7c1f18a65": "GOLD",     # POKEMON_GLD AAUK
              "cb22d7e03a74dc3a563fde6be8626626b2b392e7": "SILVER"}   # POKEMON_SLV AAXK (user-provided 2026-11-09)
@@ -503,6 +506,7 @@ def patch_wild_src(r, en_rom, en_sym, version, repo, base_ref="origin/master"):
             r.d[kr_offs[i]] = en[en_offs[i]]
             changed += 1
     r.log.append(f"wild: {kr_start:06x}-{kr_end:06x} {changed} changed species copied from the English build")
+    return kr_start
 
 
 def fix_global_checksum(d):
@@ -527,13 +531,14 @@ def main():
     r = Rom(data)
     patch_shiny(r)
     patch_exp(r)
-    patch_wild_src(r, en_rom, en_sym, version, args.repo)
+    wild_start = patch_wild_src(r, en_rom, en_sym, version, args.repo)
     patch_legends(r, en_rom)
     patch_exp5(r)
     patch_money5(r)
     patch_catch(r)
     patch_even_odds(r)
     patch_elm_trade_evo(r)
+    patch_guide(r, wild_start)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
     text = "\n".join(r.log) + "\n"
