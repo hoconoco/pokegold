@@ -1,7 +1,8 @@
 """Serve the web player and keep the game save on the server.
 
-- GET  /            files from --web-dir (index.html, emulator, ROMs), with the cross-origin isolation
-                     headers the threaded mGBA web core needs (COOP same-origin, COEP require-corp)
+- GET  /            files from --web-dir (index.html, emulator, ROMs, title screens and music), with the
+                     cross-origin isolation headers the threaded mGBA web core needs (COOP same-origin,
+                     COEP require-corp); a Range request gets that byte range (206)
 - GET  /api/save?slot=<slot>    current save of that game (404 if none yet)
 - PUT  /api/save?slot=<slot>    replace it; the previous one is kept in backups/
                                (newest BACKUP_KEEP files per slot)
@@ -14,6 +15,7 @@ Usage: python3 tools/web_server.py --web-dir DIR --data-dir DIR [--port 8789]
 """
 
 import argparse
+import re
 import shutil
 import time
 from functools import partial
@@ -42,7 +44,8 @@ class Handler(SimpleHTTPRequestHandler):
     data_dir: Path
 
     extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
-                      ".wasm": "application/wasm", ".js": "text/javascript", ".webp": "image/webp"}
+                      ".wasm": "application/wasm", ".js": "text/javascript", ".webp": "image/webp",
+                      ".m4a": "audio/mp4"}
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache")
@@ -60,8 +63,41 @@ class Handler(SimpleHTTPRequestHandler):
         name, prefix = SLOTS[slot]
         return self.data_dir / name, prefix
 
+    def _range(self):
+        """Send one byte range of a static file (Range: bytes=a-b) — Safari plays audio only from a
+        server that answers ranges (the first screen's title music). False: not a range this serves."""
+        m = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range", "").strip())
+        path = Path(self.translate_path(self.path))
+        if not m or not (m[1] or m[2]) or not path.is_file():
+            return False
+        size = path.stat().st_size
+        if m[1]:
+            start, end = int(m[1]), min(int(m[2]), size - 1) if m[2] else size - 1
+        else:
+            start, end = max(0, size - int(m[2])), size - 1
+        if start > end:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.end_headers()
+            return True
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(str(path)))
+        self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Content-Length", str(end - start + 1))
+        self.send_header("Accept-Ranges", "bytes")
+        self.end_headers()
+        with path.open("rb") as f:
+            f.seek(start)
+            left = end - start + 1
+            while left > 0 and (chunk := f.read(min(1 << 16, left))):
+                self.wfile.write(chunk)
+                left -= len(chunk)
+        return True
+
     def do_GET(self):
         if self.path.split("?")[0] != "/api/save":
+            if self.headers.get("Range") and self._range():
+                return
             return super().do_GET()
         if not self._slot():
             return self.send_error(400, "unknown slot")

@@ -2,8 +2,9 @@
 # Put the web player on the ssafy_schedule EC2 (shared with agent_town) at https://pokemon.3-35-233-70.sslip.io
 #   files: web pages + mGBA web core (web/mgba/) + the eight Korean mod ROMs (roms/<game>.gba|gbc:
 #   Gold/Silver rebuilt here with tools/kr_patch.py, the GBA ones copied from the REA_repo builds in
-#   ../pokefirered/.build/common15) + device frame photos if present (web/frames/*.webp, owner's photos,
-#   not in git) -> /srv/pokegold/web, tools/web_server.py -> /srv/pokegold/
+#   ../pokefirered/.build/common15) + the first screen's title stills and title music (web/title/, cut from
+#   the ROMs by tools/make_titles.py, not in git) + device frame photos if present (web/frames/*.webp,
+#   owner's photos, not in git) -> /srv/pokegold/web, tools/web_server.py -> /srv/pokegold/
 #   save + backups stay in /srv/pokegold/data (never touched here); files no longer used stay on the server
 #   scp to <file>.new -> mv in one go -> restart pokegold-web -> compare sha256 with local
 # --setup (first time only): create /srv/pokegold, the pokegold-web systemd unit (127.0.0.1:8789)
@@ -28,6 +29,9 @@ PAIRS=("web/index.html|index.html" "web/play.html|play.html" "web/favicon.svg|fa
        "$B/ruby/ruby_kr_mod_2.1.0.gba|roms/ruby.gba" "$B/sapphire/sapphire_kr_mod_2.1.0.gba|roms/sapphire.gba"
        "$B/fr/firered_kr_mod_2.1.0.gba|roms/firered.gba" "$B/lg/leafgreen_kr_mod_2.1.0.gba|roms/leafgreen.gba"
        "$B/em/emerald_kr_mod_2.2.0.gba|roms/emerald.gba")
+for g in yellow gold silver ruby sapphire firered leafgreen emerald; do
+  PAIRS+=("web/title/$g.png|title/$g.png" "web/title/$g.m4a|title/$g.m4a")
+done
 for f in web/frames/*.webp; do [ -f "$f" ] && PAIRS+=("$f|frames/$(basename "$f")"); done
 if [ -n "$(git status --porcelain -- web tools/web_server.py tools/kr_patch.py)" ]; then
   echo "uncommitted changes, not deploying:"; git status --short -- web tools/web_server.py tools/kr_patch.py; exit 1
@@ -77,13 +81,13 @@ fi
 REMOTE
 fi
 
-for pr in "${PAIRS[@]}"; do [ -f "${pr%%|*}" ] || { echo "missing: ${pr%%|*}"; exit 1; }; done
-ssh "${O[@]}" "$H" "mkdir -p /srv/pokegold/web/mgba /srv/pokegold/web/roms /srv/pokegold/web/frames"
+for pr in "${PAIRS[@]}"; do [ -f "${pr%%|*}" ] || { echo "missing: ${pr%%|*} (title files: python -X utf8 tools/make_titles.py)"; exit 1; }; done
+ssh "${O[@]}" "$H" "mkdir -p /srv/pokegold/web/mgba /srv/pokegold/web/roms /srv/pokegold/web/frames /srv/pokegold/web/title"
 for pr in "${PAIRS[@]}"; do scp "${O[@]}" -q "${pr%%|*}" "$H:/srv/pokegold/web/${pr#*|}.new"; done
 scp "${O[@]}" -q tools/web_server.py "$H:/srv/pokegold/web_server.py.new"
 R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && shopt -s nullglob && for f in web/*.new web/*/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
   && sudo systemctl restart pokegold-web && sleep 2 && systemctl is-active pokegold-web \
-  && cd web && sha256sum *.* mgba/* roms/* && { ls frames/* >/dev/null 2>&1 && sha256sum frames/* || true; } && cd .. && sha256sum web_server.py")
+  && cd web && sha256sum *.* mgba/* roms/* title/* && { ls frames/* >/dev/null 2>&1 && sha256sum frames/* || true; } && cd .. && sha256sum web_server.py")
 echo "$R"
 ok=1
 for pr in "${PAIRS[@]}" "tools/web_server.py|web_server.py"; do

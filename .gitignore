@@ -39,3 +39,5 @@ web/boxes/
 # web player: ROMs and device frame photos are copied in at deploy time, never committed
 web/roms/
 web/frames/
+# web first screen: title screen stills and title music cut from the ROMs (tools/make_titles.py), deployed but not committed
+web/title/

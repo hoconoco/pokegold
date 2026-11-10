@@ -33,8 +33,9 @@
 - 접속: https://pokemon.3-35-233-70.sslip.io — 에이전트 타운과 같은 아이디·비밀번호, 스마트폰 세로 화면 기준
   - ssafy_schedule EC2(에이전트 타운과 공용)의 Caddy `pokemon.` 블록(예전 `gold.` 주소는 새 주소로 넘김) → 서비스 `pokegold-web`(127.0.0.1:8789, `tools/web_server.py`)
 - 첫 화면(`web/index.html`): 여덟 판 발매순 슬라이드
-  - 가운데 판은 그 ROM을 실제로 돌린다(`play.html?game=<판>&preview=1` — 세이브 없음, 인트로는 빨리감기 뒤 판별 프레임 수에 START로 건너뜀 `PREVIEW_SKIP`) — 시작 화면과 BGM, 소리는 첫 터치 뒤부터
-  - 양옆은 그 판 시작 화면의 정지 화면(가운데 왔을 때 떠서 그 브라우저 localStorage에), 아직 없으면 판 이름
+  - 판마다 그 ROM의 시작 화면 그림(`web/title/<판>.png`), 가운데 판은 그 시작 화면의 곡(`web/title/<판>.m4a`)을 처음부터 반복 — 에뮬레이터는 돌리지 않는다, 소리는 첫 터치 뒤부터, 파일이 없는 판은 판 이름만
+  - 그림·곡 만들기: `python -X utf8 C:/Users/nojin_ijryw4c/repos/pokegold/tools/make_titles.py [판 ...]` — ROM을 libmgba로 한 번 돌려 시작 화면 한 장과 그 화면에서 나오는 곡(곡 시작~화면이 끝날 때, 음량 맞춤)을 떠낸다(판별 기준은 그 docstring). git 밖, 배포 때 올린다
+    - 도커 이미지(한 번만): `docker build -t pokegold-title tools/title_capture` — REA_repo `tools/mgba-headless` 이미지 위에
   - 밀기·방향키·옆 판 누르기로 넘기고, 가운데를 누르면 'OO 버전을 시작하시겠습니까?' → 예면 `play.html?game=<판>`
 - 플레이 화면(`web/play.html`)
   - 틀 사진(`web/frames/<gbc|gba>.webp`, 사용자 사진, git 밖)이 있는 판은 사진 위에 게임 화면·누르는 자리·전원 등(세이브 상태)을 겹친다 — 지금 골드·실버는 틀 없이(사용자 결정), GBA 판은 사진 대기
@@ -43,6 +44,6 @@
   - 키: 방향키, X=A, Z=B, Enter=Start, Tab=Select, A=L, S=R
 - 세이브: 판마다 서버 칸 하나(`api/save?slot=` — 골드 `kr`, 실버 `kr_silver`, 나머지는 판 이름), 게임이 저장하면 1초 뒤 올린다, 덮어쓸 때마다 이전 것을 `backups/`에 30개까지
   - 서버에 닿지 않으면 그 브라우저(IndexedDB)에만 남고 전원 등이 빨강
-- 배포: `bash C:/Users/nojin_ijryw4c/repos/pokegold/tools/deploy_ec2.sh` — 페이지·mGBA·여덟 ROM(골드·실버는 여기서 `kr_patch.py`로 다시 만들고, GBA 판은 `../pokefirered/.build/common15`의 보낸 빌드)·틀 사진을 올리고 sha256을 맞춘다(세이브는 건드리지 않음). `--setup`은 처음 한 번(폴더·서비스·Caddy 블록)
-- 로컬 시험: ROM을 `web/roms/<판>.gba|gbc`에 두고 `python -X utf8 tools/web_server.py --web-dir web --data-dir <임시폴더> --port 8790`
+- 배포: `bash C:/Users/nojin_ijryw4c/repos/pokegold/tools/deploy_ec2.sh` — 페이지·mGBA·여덟 ROM(골드·실버는 여기서 `kr_patch.py`로 다시 만들고, GBA 판은 `../pokefirered/.build/common15`의 보낸 빌드)·시작 화면 그림·곡(`web/title/`, 없으면 멈춘다)·틀 사진을 올리고 sha256을 맞춘다(세이브는 건드리지 않음). `--setup`은 처음 한 번(폴더·서비스·Caddy 블록)
+- 로컬 시험: ROM을 `web/roms/<판>.gba|gbc`에 두고(첫 화면은 `web/title/`) `python -X utf8 tools/web_server.py --web-dir web --data-dir <임시폴더> --port 8790`
 - 에뮬레이터: mGBA 2.6.0 웹판(`@thenick775/mgba-wasm`, MPL-2.0, `web/mgba/LICENSE.txt`) — 스레드를 써서 서버가 COOP·COEP 헤더를 붙인다(`web_server.py`)

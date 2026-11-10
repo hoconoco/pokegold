@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!-- mod: first screen — the eight Korean mod builds in release order, one at a time.
-     The middle slide runs that ROM live (play.html?game=<id>&preview=1 in a frame): its own title screen
-     and title music. The slides on either side show a still of their title screen, taken the last time
-     that game was in the middle (kept in this browser only); a game not seen yet shows its name.
+     Every slide shows its game's title screen (title/<id>.png) and the middle one plays the music of
+     that title screen (title/<id>.m4a, looped) — both cut from the ROMs by tools/make_titles.py, so no
+     emulator runs here; a game whose files are missing shows its name and stays silent.
      Swipe, arrow keys or tapping a side slide turns the carousel; tapping the middle asks
      'OO 버전을 시작하시겠습니까?' and 예 opens play.html?game=<id>.
      Sound: browsers allow it only after the first touch or key, so a small hint shows until then. -->
@@ -38,14 +38,12 @@
       overflow: hidden;
       cursor: pointer;
     }
-    .slide img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+    .slide img { position: relative; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
     .slide .blank {
       position: absolute; inset: 0; display: grid; place-items: center;
       font: 700 22px "Malgun Gothic", sans-serif; color: rgba(255,255,255,0.55);
       background: linear-gradient(160deg, #2a3038, #15181d);
     }
-    .slide iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
-    .slide iframe.ready { opacity: 1; }
     #cap {
       position: fixed; left: 0; right: 0; top: calc(42% + var(--half) + 22px);
       text-align: center; display: grid; gap: 4px;
@@ -115,9 +113,8 @@
     // start on the game picked last time, else the first one
     let cur = Math.max(0, GAMES.findIndex((g) => g.id === store.get('shelf_game')));
     let soundOn = false;
-    let frame = null;
 
-    // slides
+    // slides: the title screen over the game's name (the name shows when the picture is missing)
     const car = $('#car');
     const slides = GAMES.map((g, i) => {
       const el = document.createElement('div');
@@ -125,6 +122,8 @@
       el.style.setProperty('--ar', g.ar);
       el.setAttribute('role', 'button');
       el.setAttribute('aria-label', `포켓몬스터 ${g.name}`);
+      el.innerHTML = `<div class="blank">${g.name}</div><img src="title/${g.id}.png" alt="">`;
+      el.querySelector('img').addEventListener('error', (e) => e.target.remove());
       el.addEventListener('click', () => {
         const d = rel(i);
         if (d === 0) ask(); else go(d);
@@ -132,12 +131,22 @@
       car.appendChild(el);
       return el;
     });
-    function still(i) {
-      const g = GAMES[i];
-      const png = store.get('title_' + g.id);
-      return png ? `<img src="${png}" alt="">` : `<div class="blank">${g.name}</div>`;
-    }
     GAMES.forEach(() => $('#dots').appendChild(document.createElement('i')));
+
+    // the middle game's title music, looped from its start each time the game comes to the middle;
+    // one element for all, so a phone that let it play once keeps letting it
+    const bgm = new Audio();
+    bgm.loop = true;
+    bgm.preload = 'auto';
+    let bgmId = null;
+    function music() {
+      if (!soundOn || document.hidden || $('#white').classList.contains('on')) { bgm.pause(); return; }
+      const id = GAMES[cur].id;
+      if (bgmId !== id) { bgmId = id; bgm.src = `title/${id}.m4a`; }
+      bgm.volume = 1;
+      bgm.play().catch(() => {});
+    }
+    document.addEventListener('visibilitychange', music);
 
     function rel(i) {
       const n = GAMES.length;
@@ -156,47 +165,20 @@
         el.style.setProperty('--op', near ? 1 : 0);
         el.style.zIndex = d === 0 ? 2 : 1;
         el.style.pointerEvents = near ? '' : 'none';
-        if (d !== 0) el.innerHTML = still(i);
       });
       const g = GAMES[cur];
       $('#meta').textContent = g.meta;
       document.documentElement.style.setProperty('--half', `${slides[cur].offsetHeight / 2}px`);
       [...$('#dots').children].forEach((d, i) => d.classList.toggle('on', i === cur));
       store.set('shelf_game', g.id);
-      live();
+      music();
     }
-    // the middle slide runs its ROM; start it a moment after the carousel settles
-    let liveTimer = 0;
-    function live() {
-      clearTimeout(liveTimer);
-      if (frame) { frame.remove(); frame = null; }
-      const el = slides[cur];
-      el.innerHTML = still(cur);
-      liveTimer = setTimeout(() => {
-        frame = document.createElement('iframe');
-        frame.allow = 'autoplay';
-        frame.tabIndex = -1;
-        frame.title = '시작 화면';
-        frame.src = `play.html?game=${GAMES[cur].id}&preview=1`;
-        el.appendChild(frame);
-      }, 350);
-    }
-    addEventListener('message', (e) => {
-      if (e.origin !== location.origin || !frame || e.source !== frame.contentWindow) return;
-      if (e.data.previewTitle) {
-        frame.classList.add('ready');
-        if (soundOn) frame.contentWindow.setPreviewSound(true);
-      }
-      if (e.data.previewShot && e.data.png) store.set('title_' + e.data.previewShot, e.data.png);
-    });
     function go(d) { cur = (cur + d + GAMES.length) % GAMES.length; layout(); }
 
-    // first touch or key: sound on (browser rule)
+    // first touch or key: sound on (browser rule); a touch also restarts music a phone paused
     function unlock() {
-      if (soundOn) return;
-      soundOn = true;
-      $('#hint').classList.add('off');
-      try { frame && frame.contentWindow.setPreviewSound(true); } catch (e) {}
+      if (!soundOn) { soundOn = true; $('#hint').classList.add('off'); }
+      if (bgm.paused) music();
     }
     addEventListener('pointerdown', unlock, { capture: true });
     addEventListener('keydown', unlock, { capture: true });
@@ -227,7 +209,12 @@
     function start() {
       close();
       $('#white').classList.add('on');
-      setTimeout(() => { location.href = `play.html?game=${GAMES[cur].id}`; }, 420);
+      // the music fades with the white (phones that fix the volume just stop it at the end)
+      const fade = setInterval(() => {
+        bgm.volume = Math.max(0, bgm.volume - 0.1);
+        if (bgm.volume === 0) { clearInterval(fade); bgm.pause(); }
+      }, 40);
+      setTimeout(() => { clearInterval(fade); bgm.pause(); location.href = `play.html?game=${GAMES[cur].id}`; }, 420);
     }
     $('#yes').addEventListener('click', start);
     $('#no').addEventListener('click', close);
@@ -245,8 +232,8 @@
       else if (e.key === 'ArrowRight') go(1);
       else if (e.key === 'Enter' || e.key === ' ') { ask(); e.preventDefault(); }
     });
-    // back button: undo the white fade and start the middle slide again
-    addEventListener('pageshow', (e) => { $('#white').classList.remove('on'); if (e.persisted) live(); });
+    // back button: undo the white fade and play the middle game's music again
+    addEventListener('pageshow', () => { $('#white').classList.remove('on'); music(); });
 
     layout();
     addEventListener('resize', layout);
