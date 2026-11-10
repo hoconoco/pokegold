@@ -50,8 +50,8 @@
       position: fixed; left: 0; right: 0; top: calc(42% + var(--half) + 22px);
       text-align: center; display: grid; gap: 4px;
     }
-    #cap .name { font: 700 24px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; letter-spacing: 0.02em; }
-    #cap .meta { font-size: 13px; color: #8f98a3; }
+    /* the title screen already names the game; only the mod version goes under it */
+    #cap .meta { font: 600 15px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; letter-spacing: 0.06em; color: #9aa3ad; }
     #dots { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); display: flex; justify-content: center; gap: 7px; }
     #dots i { width: 6px; height: 6px; border-radius: 50%; background: #3b424c; }
     #dots i.on { background: #ece8df; }
@@ -84,7 +84,7 @@
 </head>
 <body>
   <div id="car"></div>
-  <div id="cap"><div class="name" id="name"></div><div class="meta" id="meta"></div></div>
+  <div id="cap"><div class="meta" id="meta"></div></div>
   <div id="dots"></div>
   <div id="hint">♪ 화면을 누르면 음악</div>
   <div id="scrim" hidden>
@@ -98,14 +98,14 @@
   <script>
     // release order; ar = screen aspect (Game Boy Color 10:9, Advance 3:2)
     const GAMES = [
-      { id: 'yellow',    name: '옐로',       meta: '개조판 0.8.0',  ar: '3 / 2' },
-      { id: 'gold',      name: '골드',       meta: '개조판 2차',    ar: '10 / 9' },
-      { id: 'silver',    name: '실버',       meta: '개조판 2차',    ar: '10 / 9' },
-      { id: 'ruby',      name: '루비',       meta: '개조판 2.1.0',  ar: '3 / 2' },
-      { id: 'sapphire',  name: '사파이어',   meta: '개조판 2.1.0',  ar: '3 / 2' },
-      { id: 'firered',   name: '파이어레드', meta: '개조판 2.1.0',  ar: '3 / 2' },
-      { id: 'leafgreen', name: '리프그린',   meta: '개조판 2.1.0',  ar: '3 / 2' },
-      { id: 'emerald',   name: '에메랄드',   meta: '개조판 2.2.0',  ar: '3 / 2' },
+      { id: 'yellow',    name: '옐로',       meta: 'v0.8.0',  ar: '3 / 2' },
+      { id: 'gold',      name: '골드',       meta: 'v2.0.0',  ar: '10 / 9' },
+      { id: 'silver',    name: '실버',       meta: 'v2.0.0',  ar: '10 / 9' },
+      { id: 'ruby',      name: '루비',       meta: 'v2.1.0',  ar: '3 / 2' },
+      { id: 'sapphire',  name: '사파이어',   meta: 'v2.1.0',  ar: '3 / 2' },
+      { id: 'firered',   name: '파이어레드', meta: 'v2.1.0',  ar: '3 / 2' },
+      { id: 'leafgreen', name: '리프그린',   meta: 'v2.1.0',  ar: '3 / 2' },
+      { id: 'emerald',   name: '에메랄드',   meta: 'v2.2.0',  ar: '3 / 2' },
     ];
     const $ = (s) => document.querySelector(s);
     const store = {
@@ -159,7 +159,6 @@
         if (d !== 0) el.innerHTML = still(i);
       });
       const g = GAMES[cur];
-      $('#name').textContent = `포켓몬스터 ${g.name}`;
       $('#meta').textContent = g.meta;
       document.documentElement.style.setProperty('--half', `${slides[cur].offsetHeight / 2}px`);
       [...$('#dots').children].forEach((d, i) => d.classList.toggle('on', i === cur));
