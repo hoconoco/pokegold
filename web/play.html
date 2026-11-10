@@ -60,6 +60,42 @@
       color: #111; font: 700 16px sans-serif;
     }
     .plain .hot.on { opacity: 0.5; box-shadow: none; }
+    /* Advance games: our own body in the game's color */
+    .shellui .body {
+      border-radius: 56px 56px 72px 72px;
+      background:
+        radial-gradient(ellipse 80% 40% at 30% 0%, rgba(255,255,255,0.28), transparent 70%),
+        linear-gradient(180deg, var(--c1), var(--c2));
+      box-shadow: inset 0 3px 2px rgba(255,255,255,0.35), inset 0 -10px 24px rgba(0,0,0,0.28), 0 30px 60px rgba(0,0,0,0.5);
+    }
+    .shellui .bezel {
+      border-radius: 26px 26px 40px 40px;
+      background: linear-gradient(180deg, #24272d, #17191d);
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.08), 0 2px 0 rgba(255,255,255,0.25);
+    }
+    .shellui .etch { font: 700 20px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; letter-spacing: 0.14em; color: rgba(0,0,0,0.38); text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
+    .shellui .bezel ~ .etch:first-of-type { color: rgba(255,255,255,0.35); text-shadow: none; }
+    .shellui #led { width: 12px; height: 12px; }
+    .shellui .hot { transition: transform 0.05s, box-shadow 0.05s; }
+    .shellui .shoulder {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--c2) 70%, #000), var(--c2));
+      color: rgba(255,255,255,0.55); font: 800 22px/1 sans-serif;
+      display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
+      box-shadow: inset 0 3px 0 rgba(255,255,255,0.18);
+    }
+    .shellui .arm, .shellui .padhub { background: #2a2c31; }
+    .shellui .arm { box-shadow: 0 6px 0 #141518; }
+    .shellui .padhub { border-radius: 4px; box-shadow: 0 6px 0 #141518; }
+    .shellui .face {
+      border-radius: 50%;
+      background: radial-gradient(circle at 38% 32%, #4a4d55, #2a2c31 70%);
+      box-shadow: 0 7px 0 #141518, 0 10px 14px rgba(0,0,0,0.3);
+      color: rgba(255,255,255,0.28); font: 800 40px sans-serif;
+    }
+    .shellui .small { border-radius: 999px; background: #2a2c31; box-shadow: 0 4px 0 #141518; }
+    .shellui .grille i { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: rgba(0,0,0,0.32); box-shadow: inset 0 2px 2px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.25); }
+    .shellui .hot.on { transform: translateY(5px); box-shadow: 0 1px 0 #141518; background-color: transparent; }
+    .shellui .shoulder.on { transform: translateY(6px); box-shadow: none; }
     /* top corner: game select and speed, small and quiet */
     #corner {
       position: fixed; z-index: 5;
@@ -100,14 +136,14 @@
     import mGBA from './mgba/mgba.js';
 
     const GAMES = {
-      yellow:    { name: '옐로',       rom: 'yellow.gba',    slot: 'yellow',    frame: 'gba' },
-      gold:      { name: '골드',       rom: 'gold.gbc',      slot: 'kr',        frame: null },
-      silver:    { name: '실버',       rom: 'silver.gbc',    slot: 'kr_silver', frame: null },
-      ruby:      { name: '루비',       rom: 'ruby.gba',      slot: 'ruby',      frame: 'gba' },
-      sapphire:  { name: '사파이어',   rom: 'sapphire.gba',  slot: 'sapphire',  frame: 'gba' },
-      firered:   { name: '파이어레드', rom: 'firered.gba',   slot: 'firered',   frame: 'gba' },
-      leafgreen: { name: '리프그린',   rom: 'leafgreen.gba', slot: 'leafgreen', frame: 'gba' },
-      emerald:   { name: '에메랄드',   rom: 'emerald.gba',   slot: 'emerald',   frame: 'gba' },
+      yellow:    { name: '옐로',       rom: 'yellow.gba',    slot: 'yellow',    frame: 'gba', c1: '#f7d348', c2: '#d9a514' },
+      gold:      { name: '골드',       rom: 'gold.gbc',      slot: 'kr',        frame: null, c1: '#e7c55a', c2: '#b38a1c' },
+      silver:    { name: '실버',       rom: 'silver.gbc',    slot: 'kr_silver', frame: null, c1: '#dfe3e8', c2: '#9ea6af' },
+      ruby:      { name: '루비',       rom: 'ruby.gba',      slot: 'ruby',      frame: 'gba', c1: '#d7404c', c2: '#8e1422' },
+      sapphire:  { name: '사파이어',   rom: 'sapphire.gba',  slot: 'sapphire',  frame: 'gba', c1: '#3d6fcc', c2: '#183a85' },
+      firered:   { name: '파이어레드', rom: 'firered.gba',   slot: 'firered',   frame: 'gba', c1: '#ee6a3f', c2: '#b8331c' },
+      leafgreen: { name: '리프그린',   rom: 'leafgreen.gba', slot: 'leafgreen', frame: 'gba', c1: '#6cbb52', c2: '#367a2a' },
+      emerald:   { name: '에메랄드',   rom: 'emerald.gba',   slot: 'emerald',   frame: 'gba', c1: '#2fc493', c2: '#0c7352' },
     };
     // Gold/Silver: the plain layout (picture and buttons) — the user preferred it to the photo frame.
     // Frame photos (owner's photos, cropped): image size, the photo's lit screen, where the game picture
@@ -165,6 +201,35 @@
       } else if (PREVIEW) {
         dev.style.width = SW * 4 + 'px'; dev.style.height = SH * 4 + 'px';
         html += `<div class="part" style="${box(0, 0, SW * 4, SH * 4)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
+      } else if (!isGbc) {
+        // Advance games without a photo: a body of our own in the game's color (no logos) — bezel with
+        // the save lamp, shoulder L/R on the top corners, pad, A/B, START/SELECT and a speaker grille
+        const W = 720, sx = 60, sy = 84, sw = 600, sh = 400, y0 = sy + sh + 92;
+        dev.classList.add('shellui');
+        dev.style.width = W + 'px'; dev.style.height = y0 + 470 + 'px';
+        dev.style.setProperty('--c1', G.c1); dev.style.setProperty('--c2', G.c2);
+        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, 0, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
+        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, 0, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
+        html += `<div class="part body" style="${box(0, 30, W, y0 + 440)}"></div>`;
+        html += `<div class="part bezel" style="${box(sx - 28, sy - 30, sw + 56, sh + 76)}"></div>`;
+        html += `<div class="part" style="${box(sx, sy, sw, sh)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
+        html += `<div id="led" class="part" style="${box(sx - 18, sy + sh + 20, 12, 12)}"></div>`;
+        html += `<div class="part etch" style="${box(sx, sy + sh + 14, sw, 26)}text-align:center">${G.name}</div>`;
+        const cx = 176, cy = y0 + 150, a = 74;   // d-pad: arm width a, centre cx,cy
+        html += `<div class="part padhub" style="${box(cx - a / 2, cy - a / 2, a, a)}"></div>`;
+        html += `<button class="part hot arm" data-k="Up" aria-label="위" style="${box(cx - a / 2, cy - a * 1.5, a, a + 4)}border-radius:12px 12px 0 0"></button>`;
+        html += `<button class="part hot arm" data-k="Down" aria-label="아래" style="${box(cx - a / 2, cy + a / 2 - 4, a, a + 4)}border-radius:0 0 12px 12px"></button>`;
+        html += `<button class="part hot arm" data-k="Left" aria-label="왼쪽" style="${box(cx - a * 1.5, cy - a / 2, a + 4, a)}border-radius:12px 0 0 12px"></button>`;
+        html += `<button class="part hot arm" data-k="Right" aria-label="오른쪽" style="${box(cx + a / 2 - 4, cy - a / 2, a + 4, a)}border-radius:0 12px 12px 0"></button>`;
+        html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(426, y0 + 168, 112, 112)}">B</button>`;
+        html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(568, y0 + 98, 112, 112)}">A</button>`;
+        html += `<button class="part hot small" data-k="Select" aria-label="SELECT" style="${box(84, y0 + 352, 96, 32)}"></button>`;
+        html += `<div class="part etch" style="${box(64, y0 + 392, 136, 22)}text-align:center">SELECT</div>`;
+        html += `<button class="part hot small" data-k="Start" aria-label="START" style="${box(84, y0 + 280, 96, 32)}"></button>`;
+        html += `<div class="part etch" style="${box(64, y0 + 320, 136, 22)}text-align:center">START</div>`;
+        let dots = '';
+        for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) dots += `<i style="left:${c * 22}px;top:${r * 22}px"></i>`;
+        html += `<div class="part grille" style="${box(536, y0 + 320, 130, 86)}">${dots}</div>`;
       } else {
         // plain: picture on top, buttons below (portrait phone first)
         const W = 720, gh = Math.round(W * SH / SW);
