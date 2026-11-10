@@ -538,7 +538,7 @@ def main():
     patch_catch(r)
     patch_even_odds(r)
     patch_elm_trade_evo(r)
-    patch_guide(r, wild_start)
+    patch_guide(r, wild_start, en_rom, en_sym, args.repo)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
     text = "\n".join(r.log) + "\n"
