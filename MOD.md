@@ -30,8 +30,8 @@
 
 ## 웹에서 실행
 
-- 접속: https://gold.3-35-233-70.sslip.io — 에이전트 타운과 같은 아이디·비밀번호, 스마트폰 세로 화면 기준
-  - ssafy_schedule EC2(에이전트 타운과 공용)의 Caddy `gold.` 블록 → 서비스 `pokegold-web`(127.0.0.1:8789, `tools/web_server.py`)
+- 접속: https://pokemon.3-35-233-70.sslip.io — 에이전트 타운과 같은 아이디·비밀번호, 스마트폰 세로 화면 기준
+  - ssafy_schedule EC2(에이전트 타운과 공용)의 Caddy `pokemon.` 블록(예전 `gold.` 주소는 새 주소로 넘김) → 서비스 `pokegold-web`(127.0.0.1:8789, `tools/web_server.py`)
 - 첫 화면(`web/index.html`): 여덟 판 발매순 슬라이드
   - 가운데 판은 그 ROM을 실제로 돌린다(`play.html?game=<판>&preview=1` — 세이브 없음, 인트로는 빨리감기 뒤 판별 프레임 수에 START로 건너뜀 `PREVIEW_SKIP`) — 시작 화면과 BGM, 소리는 첫 터치 뒤부터
   - 양옆은 그 판 시작 화면의 정지 화면(가운데 왔을 때 떠서 그 브라우저 localStorage에), 아직 없으면 판 이름

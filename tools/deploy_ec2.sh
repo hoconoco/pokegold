@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Put the web player on the ssafy_schedule EC2 (shared with agent_town) at https://gold.3-35-233-70.sslip.io
+# Put the web player on the ssafy_schedule EC2 (shared with agent_town) at https://pokemon.3-35-233-70.sslip.io
 #   files: web pages + mGBA web core (web/mgba/) + the eight Korean mod ROMs (roms/<game>.gba|gbc:
 #   Gold/Silver rebuilt here with tools/kr_patch.py, the GBA ones copied from the REA_repo builds in
 #   ../pokefirered/.build/common15) + device frame photos if present (web/frames/*.webp, owner's photos,
@@ -7,7 +7,7 @@
 #   save + backups stay in /srv/pokegold/data (never touched here); files no longer used stay on the server
 #   scp to <file>.new -> mv in one go -> restart pokegold-web -> compare sha256 with local
 # --setup (first time only): create /srv/pokegold, the pokegold-web systemd unit (127.0.0.1:8789)
-#   and append the gold. site to /etc/caddy/Caddyfile with the same basicauth line as agent_town
+#   and append the pokemon. site to /etc/caddy/Caddyfile with the same basicauth line as agent_town
 #   (Caddyfile is backed up, validated, and restored if validation fails)
 # Run from anywhere: bash tools/deploy_ec2.sh [--setup]
 # Key = env SSAFY_SCHEDULE_KEY, host = POKEGOLD_SSH (default ubuntu@3.35.233.70)
@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 H="${POKEGOLD_SSH:-ubuntu@3.35.233.70}"
 : "${SSAFY_SCHEDULE_KEY:?env SSAFY_SCHEDULE_KEY (EC2 SSH key path) is not set}"
 O=(-i "$SSAFY_SCHEDULE_KEY" -o BatchMode=yes)
-SITE=gold.3-35-233-70.sslip.io
+SITE=pokemon.3-35-233-70.sslip.io
 PORT=8789
 
 B=../pokefirered/.build/common15
