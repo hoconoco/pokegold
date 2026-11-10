@@ -119,6 +119,8 @@
     }
     #fadein { position: fixed; inset: 0; background: #fff; z-index: 9; pointer-events: none; transition: opacity 0.5s ease-out; }
     #fadein.off { opacity: 0; }
+    /* the full-height body has its own game-select and speed keys */
+    body.fullbody #corner { display: none; }
     /* preview: the picture only */
     body.preview #corner, body.preview #msg, body.preview #fadein { display: none; }
   </style>
@@ -204,17 +206,27 @@
       } else if (!isGbc) {
         // Advance games without a photo: a body of our own in the game's color (no logos) — bezel with
         // the save lamp, shoulder L/R on the top corners, pad, A/B, START/SELECT and a speaker grille
-        const W = 720, sx = 60, sy = 84, sw = 600, sh = 400, y0 = sy + sh + 92;
+        // The body fills the phone screen top to bottom (H from the window's shape); the controls sit in
+        // the middle of the space under the screen; game select and speed are small keys at the bottom.
+        const W = 720, sx = 26, sw = 668, sh = 445;
+        const H = Math.max(1040, Math.round(W * innerHeight / innerWidth));
+        const sy = 72 + Math.round(Math.max(0, H - 1040) * 0.15);
+        const y0 = sy + sh + 84 + Math.round(Math.max(0, (H - 100) - (sy + sh + 84 + 420)) / 2);
         dev.classList.add('shellui');
-        dev.style.width = W + 'px'; dev.style.height = y0 + 470 + 'px';
+        document.body.classList.add('fullbody');
+        dev.style.width = W + 'px'; dev.style.height = H + 'px';
         dev.style.setProperty('--c1', G.c1); dev.style.setProperty('--c2', G.c2);
-        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, 0, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
-        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, 0, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
-        html += `<div class="part body" style="${box(0, 30, W, y0 + 440)}"></div>`;
-        html += `<div class="part bezel" style="${box(sx - 28, sy - 30, sw + 56, sh + 76)}"></div>`;
+        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, sy - 72, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
+        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, sy - 72, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
+        html += `<div class="part body" style="${box(0, sy - 42, W, H - sy + 42)}border-radius:56px 56px 0 0"></div>`;
+        html += `<button class="part small" id="homeKey" aria-label="판 선택" style="${box(W / 2 - 150, H - 88, 96, 32)}"></button>`;
+        html += `<div class="part etch" style="${box(W / 2 - 180, H - 50, 156, 22)}text-align:center">판 선택</div>`;
+        html += `<button class="part small" id="speedKey" aria-label="게임 속도" style="${box(W / 2 + 54, H - 88, 96, 32)}"></button>`;
+        html += `<div class="part etch" id="speedLabel" style="${box(W / 2 + 24, H - 50, 156, 22)}text-align:center">속도 ×1</div>`;
+        html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 60)}"></div>`;
         html += `<div class="part" style="${box(sx, sy, sw, sh)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
-        html += `<div id="led" class="part" style="${box(sx - 18, sy + sh + 20, 12, 12)}"></div>`;
-        html += `<div class="part etch" style="${box(sx, sy + sh + 14, sw, 26)}text-align:center">${G.name}</div>`;
+        html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 14, 12, 12)}"></div>`;
+        html += `<div class="part etch" style="${box(sx, sy + sh + 8, sw, 26)}text-align:center">${G.name}</div>`;
         const cx = 176, cy = y0 + 150, a = 74;   // d-pad: arm width a, centre cx,cy
         html += `<div class="part padhub" style="${box(cx - a / 2, cy - a / 2, a, a)}"></div>`;
         html += `<button class="part hot arm" data-k="Up" aria-label="위" style="${box(cx - a / 2, cy - a * 1.5, a, a + 4)}border-radius:12px 12px 0 0"></button>`;
@@ -254,7 +266,7 @@
     function fit() {
       const dev = $('#dev');
       const w = parseFloat(dev.style.width), h = parseFloat(dev.style.height);
-      const top = PREVIEW ? 0 : 44;   // room for the corner buttons
+      const top = PREVIEW || dev.classList.contains('shellui') ? 0 : 44;   // room for the corner buttons
       const s = Math.min(innerWidth / w, (innerHeight - top) / h);
       dev.style.transform = `translate(-50%, calc(-50% + ${top / 2}px)) scale(${s})`;
     }
@@ -318,6 +330,8 @@
       const b = $('#speed');
       b.textContent = `×${SPEEDS[speedIdx]}`;
       b.classList.toggle('fast', SPEEDS[speedIdx] > 1);
+      const lbl = $('#speedLabel');
+      if (lbl) lbl.textContent = `속도 ×${SPEEDS[speedIdx]}`;
     }
 
     // sound needs a touch or key first (browser rule); the first screen calls these from its own touch
@@ -394,11 +408,18 @@
       } });
     }
 
-    $('#home').addEventListener('click', async () => {
+    async function goHome() {
       if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
       location.href = './';
-    });
+    }
+    $('#home').addEventListener('click', goHome);
     $('#speed').addEventListener('click', () => M && nextSpeed());
+    // the same two on the full-height body (built later, so listen on the document)
+    document.addEventListener('click', (e) => {
+      const t = e.target.closest && e.target.closest('#homeKey, #speedKey');
+      if (!t) return;
+      if (t.id === 'homeKey') goHome(); else if (M) nextSpeed();
+    });
   </script>
 </body>
 </html>
