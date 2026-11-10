@@ -203,43 +203,10 @@
         dev.style.width = SW * 4 + 'px'; dev.style.height = SH * 4 + 'px';
         html += `<div class="part" style="${box(0, 0, SW * 4, SH * 4)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
       } else if (!isGbc) {
-        // Advance games without a photo: a body of our own in the game's color (no logos) — bezel with
-        // the save lamp, shoulder L/R on the top corners, pad, A/B, START/SELECT and a speaker grille
-        // The body fills the phone screen top to bottom (H from the window's shape); the controls sit in
-        // the middle of the space under the screen; game select and speed are small keys at the bottom.
-        const W = 720, sx = 26, sw = 668, sh = 445;
-        const H = Math.max(1040, Math.round(W * innerHeight / innerWidth));
-        const sy = 72 + Math.round(Math.max(0, H - 1040) * 0.15);
-        const y0 = sy + sh + 84 + Math.round(Math.max(0, (H - 100) - (sy + sh + 84 + 420)) / 2);
+        shellLayout = innerWidth > innerHeight ? 'land' : 'port';
+        html = shellHtml(shellLayout);
         dev.classList.add('shellui');
         document.body.classList.add('fullbody');
-        dev.style.width = W + 'px'; dev.style.height = H + 'px';
-        dev.style.setProperty('--c1', G.c1); dev.style.setProperty('--c2', G.c2);
-        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, sy - 72, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
-        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, sy - 72, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
-        html += `<div class="part body" style="${box(0, sy - 42, W, H - sy + 42)}border-radius:56px 56px 0 0"></div>`;
-        html += `<button class="part small" id="homeKey" aria-label="판 선택" style="${box(W / 2 - 150, H - 88, 96, 32)}"></button>`;
-        html += `<div class="part etch" style="${box(W / 2 - 180, H - 50, 156, 22)}text-align:center">판 선택</div>`;
-        html += `<button class="part small" id="speedKey" aria-label="게임 속도" style="${box(W / 2 + 54, H - 88, 96, 32)}"></button>`;
-        html += `<div class="part etch" id="speedLabel" style="${box(W / 2 + 24, H - 50, 156, 22)}text-align:center">속도 ×1</div>`;
-        html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
-        html += `<div class="part" style="${box(sx, sy, sw, sh)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
-        html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
-        const cx = 176, cy = y0 + 150, a = 74;   // d-pad: arm width a, centre cx,cy
-        html += `<div class="part padhub" style="${box(cx - a / 2, cy - a / 2, a, a)}"></div>`;
-        html += `<button class="part hot arm" data-k="Up" aria-label="위" style="${box(cx - a / 2, cy - a * 1.5, a, a + 4)}border-radius:12px 12px 0 0"></button>`;
-        html += `<button class="part hot arm" data-k="Down" aria-label="아래" style="${box(cx - a / 2, cy + a / 2 - 4, a, a + 4)}border-radius:0 0 12px 12px"></button>`;
-        html += `<button class="part hot arm" data-k="Left" aria-label="왼쪽" style="${box(cx - a * 1.5, cy - a / 2, a + 4, a)}border-radius:12px 0 0 12px"></button>`;
-        html += `<button class="part hot arm" data-k="Right" aria-label="오른쪽" style="${box(cx + a / 2 - 4, cy - a / 2, a + 4, a)}border-radius:0 12px 12px 0"></button>`;
-        html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(426, y0 + 168, 112, 112)}">B</button>`;
-        html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(568, y0 + 98, 112, 112)}">A</button>`;
-        html += `<button class="part hot small" data-k="Select" aria-label="SELECT" style="${box(84, y0 + 352, 96, 32)}"></button>`;
-        html += `<div class="part etch" style="${box(64, y0 + 392, 136, 22)}text-align:center">SELECT</div>`;
-        html += `<button class="part hot small" data-k="Start" aria-label="START" style="${box(84, y0 + 280, 96, 32)}"></button>`;
-        html += `<div class="part etch" style="${box(64, y0 + 320, 136, 22)}text-align:center">START</div>`;
-        let dots = '';
-        for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) dots += `<i style="left:${c * 22}px;top:${r * 22}px"></i>`;
-        html += `<div class="part grille" style="${box(536, y0 + 320, 130, 86)}">${dots}</div>`;
       } else {
         // plain: picture on top, buttons below (portrait phone first)
         const W = 720, gh = Math.round(W * SH / SW);
@@ -251,16 +218,107 @@
         const pad = { Up: [110, y, 90, 90], Down: [110, y + 180, 90, 90], Left: [20, y + 90, 90, 90], Right: [200, y + 90, 90, 90],
                       B: [440, y + 110, 110, 110, 'round'], A: [580, y + 50, 110, 110, 'round'],
                       Select: [230, y + 340, 110, 44, 'pill'], Start: [380, y + 340, 110, 44, 'pill'] };
-        if (!isGbc) { pad.L = [0, gh + 20, 160, 50, 'pill']; pad.R = [W - 160, gh + 20, 160, 50, 'pill']; }
-        const label = { Up: '▲', Down: '▼', Left: '◀', Right: '▶', A: 'A', B: 'B', Select: 'SELECT', Start: 'START', L: 'L', R: 'R' };
+        const label = { Up: '▲', Down: '▼', Left: '◀', Right: '▶', A: 'A', B: 'B', Select: 'SELECT', Start: 'START' };
         for (const [k, v] of Object.entries(pad)) {
           html += `<button class="part hot ${v[4] || ''}" data-k="${k}" aria-label="${k}" style="${box(v[0], v[1], v[2], v[3])}">${label[k]}</button>`;
         }
       }
       dev.innerHTML = html;
+      placeCanvas();
       fit();
-      addEventListener('resize', fit);
     }
+
+    // The game canvas is made once and moved between layouts, so turning the phone does not stop the game.
+    let canvasEl = null;
+    function placeCanvas() {
+      const slot = $('#screenbox');
+      if (!slot) return;   // layouts that write the canvas themselves
+      if (!canvasEl) { canvasEl = document.createElement('canvas'); canvasEl.id = 'screen'; canvasEl.width = SW; canvasEl.height = SH; }
+      slot.appendChild(canvasEl);
+    }
+
+    // Advance games without a photo: a body of our own in the game's color (no logos) — bezel with
+    // the save lamp, shoulder L/R on the top corners, pad, A/B, START/SELECT, game-select and speed keys.
+    // Portrait: the body fills the phone top to bottom, controls in the middle of the space under the
+    // screen, game select and speed at the bottom. Landscape: the screen in the middle as large as the
+    // height allows, pad and START/SELECT on the left, A/B and game select/speed on the right.
+    let shellLayout = null;
+    function shellHtml(kind) {
+      const dev = $('#dev');
+      dev.style.setProperty('--c1', G.c1); dev.style.setProperty('--c2', G.c2);
+      let html = '';
+      const pad = (cx, cy, a) => {
+        let h = `<div class="part padhub" style="${box(cx - a / 2, cy - a / 2, a, a)}"></div>`;
+        h += `<button class="part hot arm" data-k="Up" aria-label="위" style="${box(cx - a / 2, cy - a * 1.5, a, a + 4)}border-radius:12px 12px 0 0"></button>`;
+        h += `<button class="part hot arm" data-k="Down" aria-label="아래" style="${box(cx - a / 2, cy + a / 2 - 4, a, a + 4)}border-radius:0 0 12px 12px"></button>`;
+        h += `<button class="part hot arm" data-k="Left" aria-label="왼쪽" style="${box(cx - a * 1.5, cy - a / 2, a + 4, a)}border-radius:12px 0 0 12px"></button>`;
+        h += `<button class="part hot arm" data-k="Right" aria-label="오른쪽" style="${box(cx + a / 2 - 4, cy - a / 2, a + 4, a)}border-radius:0 12px 12px 0"></button>`;
+        return h;
+      };
+      const key = (attrs, x, y, label, lblId = '') =>
+        `<button class="part ${attrs}" style="${box(x, y, 96, 32)}"></button>` +
+        `<div class="part etch" ${lblId ? `id="${lblId}"` : ''} style="${box(x - 30, y + 40, 156, 22)}text-align:center">${label}</div>`;
+      const speedText = `속도 ×${SPEEDS[speedIdx]}`;
+      if (kind === 'land') {
+        const H = 720, W = Math.max(1300, Math.round(H * innerWidth / innerHeight));
+        let sw = Math.min(840, W - 600), sh = Math.round(sw * 2 / 3);
+        const sx = Math.round((W - sw) / 2), sy = 70 + Math.round((560 - sh) / 2);
+        const lx = sx / 2, rx = W - sx / 2;
+        dev.style.width = W + 'px'; dev.style.height = H + 'px';
+        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(40, 0, 260, 70)}border-radius:40px 14px 0 0">L</button>`;
+        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 300, 0, 260, 70)}border-radius:14px 40px 0 0">R</button>`;
+        html += `<div class="part body" style="${box(0, 30, W, H - 30)}border-radius:48px 48px 0 0"></div>`;
+        html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
+        html += `<div class="part" id="screenbox" style="${box(sx, sy, sw, sh)}"></div>`;
+        html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
+        html += pad(lx, 290, 78);
+        html += key('hot small" data-k="Start" aria-label="START', lx - 48, 470, 'START');
+        html += key('hot small" data-k="Select" aria-label="SELECT', lx - 48, 570, 'SELECT');
+        html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(rx + 14, 190, 112, 112)}">A</button>`;
+        html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(rx - 126, 270, 112, 112)}">B</button>`;
+        html += key('small" id="homeKey" aria-label="판 선택', rx - 48, 470, '판 선택');
+        html += key('small" id="speedKey" aria-label="게임 속도', rx - 48, 570, speedText, 'speedLabel');
+        return html;
+      }
+      const W = 720, sx = 26, sw = 668, sh = 445;
+      const H = Math.max(1040, Math.round(W * innerHeight / innerWidth));
+      const sy = 72 + Math.round(Math.max(0, H - 1040) * 0.15);
+      const y0 = sy + sh + 84 + Math.round(Math.max(0, (H - 100) - (sy + sh + 84 + 420)) / 2);
+      dev.style.width = W + 'px'; dev.style.height = H + 'px';
+      html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, sy - 72, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
+      html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, sy - 72, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
+      html += `<div class="part body" style="${box(0, sy - 42, W, H - sy + 42)}border-radius:56px 56px 0 0"></div>`;
+      html += key('small" id="homeKey" aria-label="판 선택', W / 2 - 150, H - 88, '판 선택');
+      html += key('small" id="speedKey" aria-label="게임 속도', W / 2 + 54, H - 88, speedText, 'speedLabel');
+      html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
+      html += `<div class="part" id="screenbox" style="${box(sx, sy, sw, sh)}"></div>`;
+      html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
+      html += pad(176, y0 + 150, 74);
+      html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(426, y0 + 168, 112, 112)}">B</button>`;
+      html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(568, y0 + 98, 112, 112)}">A</button>`;
+      html += key('hot small" data-k="Start" aria-label="START', 84, y0 + 280, 'START');
+      html += key('hot small" data-k="Select" aria-label="SELECT', 84, y0 + 352, 'SELECT');
+      let dots = '';
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) dots += `<i style="left:${c * 22}px;top:${r * 22}px"></i>`;
+      html += `<div class="part grille" style="${box(536, y0 + 320, 130, 86)}">${dots}</div>`;
+      return html;
+    }
+
+    // turning the phone: re-lay the body (the canvas moves along), otherwise just re-fit
+    addEventListener('resize', () => {
+      const dev = $('#dev');
+      if (dev.classList.contains('shellui')) {
+        const kind = innerWidth > innerHeight ? 'land' : 'port';
+        if (kind !== shellLayout) {
+          shellLayout = kind;
+          dev.innerHTML = shellHtml(kind);
+          placeCanvas();
+          if (M) bindPointers();
+          lamp(lastLamp);
+        }
+      }
+      fit();
+    });
     function fit() {
       const dev = $('#dev');
       const w = parseFloat(dev.style.width), h = parseFloat(dev.style.height);
@@ -271,7 +329,9 @@
 
     // ---------- save ----------
     const SAVE_URL = `api/save?slot=${G.slot}`;
+    let lastLamp = 'ok';
     function lamp(state, text) {
+      lastLamp = state;
       const led = $('#led');
       if (led) { led.classList.remove('ok', 'busy', 'fail'); led.classList.add(state); }
       if (text !== undefined) $('#msg').textContent = text;
@@ -298,17 +358,20 @@
     }
 
     // ---------- input ----------
-    function bindInput() {
-      const press = (k, on) => {
-        const el = document.querySelector(`[data-k="${k}"]`);
-        if (el) el.classList.toggle('on', on);
-        on ? M.buttonPress(k) : M.buttonUnpress(k);
-      };
+    function press(k, on) {
+      const el = document.querySelector(`[data-k="${k}"]`);
+      if (el) el.classList.toggle('on', on);
+      on ? M.buttonPress(k) : M.buttonUnpress(k);
+    }
+    function bindPointers() {
       document.querySelectorAll('[data-k]').forEach((el) => {
         const k = el.dataset.k;
-        el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture?.(e.pointerId); press(k, true); });
+        el.addEventListener('pointerdown', (e) => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (_) {} press(k, true); });
         for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, () => press(k, false));
       });
+    }
+    function bindInput() {
+      bindPointers();
       const KEYS = { ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
                      KeyX: 'A', KeyZ: 'B', Enter: 'Start', Tab: 'Select', KeyA: 'L', KeyS: 'R' };
       M.toggleInput(false);  // keyboard goes through the same path as touch
