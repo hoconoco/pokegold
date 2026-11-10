@@ -74,7 +74,6 @@
       box-shadow: inset 0 2px 0 rgba(255,255,255,0.08), 0 2px 0 rgba(255,255,255,0.25);
     }
     .shellui .etch { font: 700 20px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; letter-spacing: 0.14em; color: rgba(0,0,0,0.38); text-shadow: 0 1px 0 rgba(255,255,255,0.3); }
-    .shellui .bezel ~ .etch:first-of-type { color: rgba(255,255,255,0.35); text-shadow: none; }
     .shellui #led { width: 12px; height: 12px; }
     .shellui .hot { transition: transform 0.05s, box-shadow 0.05s; }
     .shellui .shoulder {
@@ -223,10 +222,9 @@
         html += `<div class="part etch" style="${box(W / 2 - 180, H - 50, 156, 22)}text-align:center">판 선택</div>`;
         html += `<button class="part small" id="speedKey" aria-label="게임 속도" style="${box(W / 2 + 54, H - 88, 96, 32)}"></button>`;
         html += `<div class="part etch" id="speedLabel" style="${box(W / 2 + 24, H - 50, 156, 22)}text-align:center">속도 ×1</div>`;
-        html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 60)}"></div>`;
+        html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
         html += `<div class="part" style="${box(sx, sy, sw, sh)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
-        html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 14, 12, 12)}"></div>`;
-        html += `<div class="part etch" style="${box(sx, sy + sh + 8, sw, 26)}text-align:center">${G.name}</div>`;
+        html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
         const cx = 176, cy = y0 + 150, a = 74;   // d-pad: arm width a, centre cx,cy
         html += `<div class="part padhub" style="${box(cx - a / 2, cy - a / 2, a, a)}"></div>`;
         html += `<button class="part hot arm" data-k="Up" aria-label="위" style="${box(cx - a / 2, cy - a * 1.5, a, a + 4)}border-radius:12px 12px 0 0"></button>`;
