@@ -245,7 +245,8 @@
     // the save lamp, shoulder L/R on the top corners, pad, A/B, START/SELECT, game-select and speed keys.
     // Portrait: the body fills the phone top to bottom, controls in the middle of the space under the
     // screen, game select and speed at the bottom. Landscape: the screen in the middle as large as the
-    // height allows, pad and START/SELECT on the left, A/B and game select/speed on the right.
+    // height allows, pad on the left, A/B and game select/speed on the right.
+    // START/SELECT sit above A/B in both (under the pad the thumb kept hitting them — user decision).
     let shellLayout = null;
     function shellHtml(kind) {
       const dev = $('#dev');
@@ -276,8 +277,8 @@
         html += `<div class="part" id="screenbox" style="${box(sx, sy, sw, sh)}"></div>`;
         html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
         html += pad(lx, 290, 78);
-        html += key('hot small" data-k="Start" aria-label="START', lx - 48, 470, 'START');
-        html += key('hot small" data-k="Select" aria-label="SELECT', lx - 48, 570, 'SELECT');
+        html += key('hot small" data-k="Select" aria-label="SELECT', rx - 118, 84, 'SELECT');   // over B
+        html += key('hot small" data-k="Start" aria-label="START', rx + 22, 84, 'START');       // over A
         html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(rx + 14, 190, 112, 112)}">A</button>`;
         html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(rx - 126, 270, 112, 112)}">B</button>`;
         html += key('small" id="homeKey" aria-label="판 선택', rx - 48, 470, '판 선택');
@@ -300,8 +301,8 @@
       html += pad(176, y0 + 150, 74);
       html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(426, y0 + 168, 112, 112)}">B</button>`;
       html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(568, y0 + 98, 112, 112)}">A</button>`;
-      html += key('hot small" data-k="Start" aria-label="START', 84, y0 + 280, 'START');
-      html += key('hot small" data-k="Select" aria-label="SELECT', 84, y0 + 352, 'SELECT');
+      html += key('hot small" data-k="Select" aria-label="SELECT', 434, y0 - 24, 'SELECT');   // over B
+      html += key('hot small" data-k="Start" aria-label="START', 576, y0 - 24, 'START');      // over A
       let dots = '';
       for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) dots += `<i style="left:${c * 22}px;top:${r * 22}px"></i>`;
       html += `<div class="part grille" style="${box(536, y0 + 320, 130, 86)}">${dots}</div>`;
@@ -456,6 +457,8 @@
       }
       if (!M.loadGame(romPath)) { $('#msg').textContent = 'ROM을 불러오지 못했습니다'; return; }
       bindInput();
+      playing = true;
+      sleep(document.hidden);
       // what the server has (offline: this device's copy, which is what it will be compared with)
       sent = srv || M.getSave()?.slice() || null;
       let t = 0;
@@ -494,6 +497,19 @@
         }
       } });
     }
+
+    // leaving the page (phone home button, another app, screen off) puts the game to sleep — no sound, no play — until it is back
+    let playing = false, asleep = false;
+    function sleep(on) {
+      if (!playing || on === asleep) return;
+      asleep = on;
+      try {
+        if (on) { M.pauseGame(); M.pauseAudio(); } else { M.resumeGame(); M.resumeAudio(); }
+      } catch (e) {}
+    }
+    document.addEventListener('visibilitychange', () => sleep(document.hidden));
+    addEventListener('pagehide', () => sleep(true));
+    addEventListener('pageshow', () => sleep(document.hidden));
 
     async function goHome() {
       if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
