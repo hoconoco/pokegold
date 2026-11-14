@@ -425,17 +425,34 @@
     for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => window.unlockAudio(), { capture: true });
 
     // ---------- start ----------
+    // what went wrong is shown on the screen (preview: in the first screen's card), never a silent blank
+    function report(text) {
+      if (PREVIEW) { try { parent.postMessage({ previewStatus: id, text }, location.origin); } catch (e) {} }
+      else $('#msg').textContent = text;
+    }
+    addEventListener('error', (e) => report('오류: ' + (e.message || e.type)));
+    addEventListener('unhandledrejection', (e) => report('오류: ' + ((e.reason && e.reason.message) || e.reason)));
     (async () => {
       const f = await loadFrame();
       build(f);
-      M = await mGBA({ canvas: $('#screen') });
+      if (!self.crossOriginIsolated) {
+        report('이 브라우저는 게임 실행에 필요한 기능(교차 출처 격리)을 막고 있습니다 — Chrome에서 열어 주세요');
+        return;
+      }
+      report('불러오는 중…');
+      try {
+        M = await mGBA({ canvas: $('#screen') });
+      } catch (e) { report('에뮬레이터 시작 실패: ' + (e.message || e)); return; }
       await M.FSInit();
       M.setCoreSettings({ autoSaveStateEnable: false, restoreAutoSaveStateOnLoad: false, rewindEnable: false });
       const paths = M.filePaths();
       const romPath = `${paths.gamePath}/${G.rom}`;
       const savePath = `${paths.savePath}/${G.rom.replace(/\.\w+$/, '')}.sav`;
-      const rom = new Uint8Array(await (await fetch('roms/' + G.rom)).arrayBuffer());
+      const res = await fetch('roms/' + G.rom);
+      if (!res.ok) { report(`ROM을 받지 못했습니다 (${res.status})`); return; }
+      const rom = new Uint8Array(await res.arrayBuffer());
       M.FS.writeFile(romPath, rom);
+      report('');
 
       if (PREVIEW) {
         M.setVolume(0);
