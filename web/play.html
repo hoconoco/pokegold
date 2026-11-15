@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- mod: play screen on the mGBA web core (Game Boy, Color and Advance).
+<!-- mod: play screen on the mGBA web core (Game Boy, Color and Advance), and for DS games (.nds) the
+     EmulatorJS melonDS core (ejs/data/, EmulatorJS 4.2.3 — non-minified src loaded with EJS_DEBUG_XX):
+     the same body in the game's color with both DS screens stacked (the lower one takes touches),
+     X/Y added to the face buttons, the same server save slot (polled every 2 s, sent when it changed).
      play.html?game=<id>  — ids in GAMES below (Korean mod builds, roms/<id>.gba|gbc, copied in at deploy).
      The device frame is the owner's photo of the handheld (frames/<gbc|gba>.webp, not in git): the game
      picture covers the photo's screen, the photo's buttons are the touch targets, the photo's power lamp
@@ -96,6 +99,9 @@
     .shellui .grille i { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: rgba(0,0,0,0.32); box-shadow: inset 0 2px 2px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.25); }
     .shellui .hot.on { transform: translateY(5px); box-shadow: 0 1px 0 #141518; filter: brightness(0.8); }   /* pressed: sink and darken, keep the fill */
     .shellui .shoulder.on { transform: translateY(6px); box-shadow: none; }
+    /* DS: EmulatorJS draws into #ejs — hide its own bars, pad and menus */
+    #ejs .ejs_menu_bar, #ejs .ejs_virtualGamepad_parent, #ejs .ejs_context_menu, #ejs .ejs_virtualGamepad_open { display: none !important; }
+    #ejs { background: #000; }
     /* top corner: game select and speed, small and quiet */
     #corner {
       position: fixed; z-index: 5;
@@ -135,7 +141,6 @@
   <div id="fadein"></div>
 
   <script type="module">
-    import mGBA from './mgba/mgba.js';
 
     // Korean Gold/Silver save RAM: banks 1-3 hold the game (an in-game save always rewrites bank 1),
     // and a real save has check value 99 at bank 1 $A008 (ValidateSave in both ROMs)
@@ -149,6 +154,7 @@
       firered:   { name: '파이어레드', rom: 'firered.gba',   slot: 'firered',   frame: 'gba', c1: '#ee6a3f', c2: '#b8331c' },
       leafgreen: { name: '리프그린',   rom: 'leafgreen.gba', slot: 'leafgreen', frame: 'gba', c1: '#6cbb52', c2: '#367a2a' },
       emerald:   { name: '에메랄드',   rom: 'emerald.gba',   slot: 'emerald',   frame: 'gba', c1: '#2fc493', c2: '#0c7352' },
+      platinum:  { name: '기라티나',   rom: 'platinum.nds',  slot: 'platinum',  frame: null,  c1: '#a7abb3', c2: '#4e535c' },
     };
     // Gold/Silver: the plain layout (picture and buttons) — the user preferred it to the photo frame.
     // Frame photos (owner's photos, cropped): image size, the photo's lit screen, where the game picture
@@ -169,6 +175,7 @@
       yellow: { frames: 600, button: 'Start' }, gold: { frames: 720, button: 'Start' }, silver: { frames: 720, button: 'Start' },
       ruby: { frames: 600, button: 'Start' }, sapphire: { frames: 600, button: 'Start' },
       firered: { frames: 600, button: 'Start' }, leafgreen: { frames: 600, button: 'Start' }, emerald: { frames: 600, button: 'Start' },
+      platinum: { frames: 900, button: 'Start' },
     };
     const SPEEDS = [1, 2, 3];
 
@@ -181,7 +188,8 @@
     if (PREVIEW) document.body.classList.add('preview');
 
     const isGbc = G.rom.endsWith('.gbc');
-    const [SW, SH] = isGbc ? [160, 144] : [240, 160];
+    const isNds = G.rom.endsWith('.nds');
+    const [SW, SH] = isGbc ? [160, 144] : isNds ? [256, 384] : [240, 160];
 
     // ---------- layout ----------
     async function loadFrame() {
@@ -206,7 +214,7 @@
       } else if (PREVIEW) {
         dev.style.width = SW * 4 + 'px'; dev.style.height = SH * 4 + 'px';
         html += `<div class="part" style="${box(0, 0, SW * 4, SH * 4)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
-      } else if (!isGbc) {
+      } else if (!isGbc || isNds) {
         shellLayout = innerWidth > innerHeight ? 'land' : 'port';
         html = shellHtml(shellLayout);
         dev.classList.add('shellui');
@@ -237,6 +245,7 @@
     function placeCanvas() {
       const slot = $('#screenbox');
       if (!slot) return;   // layouts that write the canvas themselves
+      if (!canvasEl && isNds) { canvasEl = document.createElement('div'); canvasEl.id = 'ejs'; canvasEl.style.cssText = 'width:100%;height:100%'; }
       if (!canvasEl) { canvasEl = document.createElement('canvas'); canvasEl.id = 'screen'; canvasEl.width = SW; canvasEl.height = SH; }
       slot.appendChild(canvasEl);
     }
@@ -264,6 +273,7 @@
         `<button class="part ${attrs}" style="${box(x, y, 96, 32)}"></button>` +
         `<div class="part etch" ${lblId ? `id="${lblId}"` : ''} style="${box(x - 30, y + 40, 156, 22)}text-align:center">${label}</div>`;
       const speedText = `속도 ×${SPEEDS[speedIdx]}`;
+      if (kind === 'land' && isNds) return dsHtml(kind, pad, key, speedText);
       if (kind === 'land') {
         const H = 720, W = Math.max(1300, Math.round(H * innerWidth / innerHeight));
         let sw = Math.min(840, W - 600), sh = Math.round(sw * 2 / 3);
@@ -285,6 +295,7 @@
         html += key('small" id="speedKey" aria-label="게임 속도', rx - 48, 570, speedText, 'speedLabel');
         return html;
       }
+      if (isNds) return dsHtml(kind, pad, key, speedText);
       const W = 720, sx = 26, sw = 668, sh = 445;
       const H = Math.max(1040, Math.round(W * innerHeight / innerWidth));
       const sy = 72 + Math.round(Math.max(0, H - 1040) * 0.15);
@@ -306,6 +317,53 @@
       let dots = '';
       for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) dots += `<i style="left:${c * 22}px;top:${r * 22}px"></i>`;
       html += `<div class="part grille" style="${box(536, y0 + 320, 130, 86)}">${dots}</div>`;
+      return html;
+    }
+
+    // DS: both screens stacked (256x384, 2:3) in the bezel, X/Y/A/B diamond, L/R on the top corners.
+    // Portrait: screens as wide as the body allows with room for the controls under them.
+    // Landscape: screens in the middle as tall as the height allows, pad left, buttons right.
+    function dsHtml(kind, pad, key, speedText) {
+      const dev = $('#dev');
+      let html = '';
+      const face = (k, x, y) => `<button class="part hot face" data-k="${k}" aria-label="${k}" style="${box(x, y, 104, 104)}">${k}</button>`;
+      const diamond = (cx, cy) => face('X', cx - 52, cy - 150) + face('Y', cx - 150, cy - 52) + face('A', cx + 46, cy - 52) + face('B', cx - 52, cy + 46);
+      if (kind === 'land') {
+        const H = 720, W = Math.max(1300, Math.round(H * innerWidth / innerHeight));
+        const sh = 620, sw = Math.round(sh * 2 / 3), sx = Math.round((W - sw) / 2), sy = 70;
+        const lx = sx / 2, rx = W - sx / 2;
+        dev.style.width = W + 'px'; dev.style.height = H + 'px';
+        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(40, 0, 260, 70)}border-radius:40px 14px 0 0">L</button>`;
+        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 300, 0, 260, 70)}border-radius:14px 40px 0 0">R</button>`;
+        html += `<div class="part body" style="${box(0, 30, W, H - 30)}border-radius:48px 48px 0 0"></div>`;
+        html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
+        html += `<div class="part" id="screenbox" style="${box(sx, sy, sw, sh)}"></div>`;
+        html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
+        html += pad(lx, 300, 78);
+        html += key('hot small" data-k="Select" aria-label="SELECT', lx - 118, 520, 'SELECT');
+        html += key('hot small" data-k="Start" aria-label="START', lx + 22, 520, 'START');
+        html += diamond(rx, 300);
+        html += key('small" id="homeKey" aria-label="판 선택', rx - 118, 520, '판 선택');
+        html += key('small" id="speedKey" aria-label="게임 속도', rx + 22, 520, speedText, 'speedLabel');
+        return html;
+      }
+      const W = 720, sw = 480, sh = 720, sx = Math.round((W - sw) / 2);
+      const H = Math.max(1400, Math.round(W * innerHeight / innerWidth));
+      const sy = 72;
+      const y0 = sy + sh + 60 + Math.round(Math.max(0, (H - 100) - (sy + sh + 60 + 430)) / 2);
+      dev.style.width = W + 'px'; dev.style.height = H + 'px';
+      html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, sy - 72, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
+      html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, sy - 72, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
+      html += `<div class="part body" style="${box(0, sy - 42, W, H - sy + 42)}border-radius:56px 56px 0 0"></div>`;
+      html += key('small" id="homeKey" aria-label="판 선택', W / 2 - 150, H - 88, '판 선택');
+      html += key('small" id="speedKey" aria-label="게임 속도', W / 2 + 54, H - 88, speedText, 'speedLabel');
+      html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
+      html += `<div class="part" id="screenbox" style="${box(sx, sy, sw, sh)}"></div>`;
+      html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
+      html += pad(170, y0 + 190, 74);
+      html += diamond(560, y0 + 190);
+      html += key('hot small" data-k="Select" aria-label="SELECT', 250, y0 - 10, 'SELECT');
+      html += key('hot small" data-k="Start" aria-label="START', 374, y0 - 10, 'START');
       return html;
     }
 
@@ -384,8 +442,12 @@
     function press(k, on) {
       const el = document.querySelector(`[data-k="${k}"]`);
       if (el) el.classList.toggle('on', on);
+      if (isNds) { const i = NDS_KEYS[k]; if (i !== undefined && EJ()) EJ().gameManager.simulateInput(0, i, on ? 1 : 0); return; }
       on ? M.buttonPress(k) : M.buttonUnpress(k);
     }
+    // EmulatorJS input numbers (data/src/emulator.js nds layout)
+    const NDS_KEYS = { B: 0, Y: 1, Select: 2, Start: 3, Up: 4, Down: 5, Left: 6, Right: 7, A: 8, X: 9, L: 10, R: 11 };
+    const EJ = () => window.EJS_emulator && window.EJS_emulator.gameManager ? window.EJS_emulator : null;
     function bindPointers() {
       document.querySelectorAll('[data-k]').forEach((el) => {
         const k = el.dataset.k;
@@ -396,8 +458,8 @@
     function bindInput() {
       bindPointers();
       const KEYS = { ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
-                     KeyX: 'A', KeyZ: 'B', Enter: 'Start', Tab: 'Select', KeyA: 'L', KeyS: 'R' };
-      M.toggleInput(false);  // keyboard goes through the same path as touch
+                     KeyX: 'A', KeyZ: 'B', Enter: 'Start', Tab: 'Select', KeyA: 'L', KeyS: 'R', KeyC: 'X', KeyV: 'Y' };
+      if (M) M.toggleInput(false);  // keyboard goes through the same path as touch
       addEventListener('keydown', (e) => {
         if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (!e.repeat) nextSpeed(); return; }
         const k = KEYS[e.code];
@@ -410,7 +472,8 @@
     let speedIdx = 0;
     function nextSpeed() {
       speedIdx = (speedIdx + 1) % SPEEDS.length;
-      M.setFastForwardMultiplier(SPEEDS[speedIdx]);
+      if (isNds) { const e = EJ(); if (e) { e.gameManager.setFastForwardRatio(SPEEDS[speedIdx]); e.gameManager.toggleFastForward(SPEEDS[speedIdx] > 1 ? 1 : 0); } }
+      else M.setFastForwardMultiplier(SPEEDS[speedIdx]);
       const b = $('#speed');
       b.textContent = `×${SPEEDS[speedIdx]}`;
       b.classList.toggle('fast', SPEEDS[speedIdx] > 1);
@@ -430,8 +493,10 @@
       if (PREVIEW) { try { parent.postMessage({ previewStatus: id, text }, location.origin); } catch (e) {} }
       else $('#msg').textContent = text;
     }
-    addEventListener('error', (e) => report('오류: ' + (e.message || e.type)));
-    addEventListener('unhandledrejection', (e) => report('오류: ' + ((e.reason && e.reason.message) || e.reason)));
+    // EmulatorJS asks for a screen wake lock; a denied request is not a game error
+    const benign = (t) => /wake lock/i.test(String(t));
+    addEventListener('error', (e) => { if (!benign(e.message)) report('오류: ' + (e.message || e.type)); });
+    addEventListener('unhandledrejection', (e) => { const t = (e.reason && e.reason.message) || e.reason; if (!benign(t)) report('오류: ' + t); });
     (async () => {
       const f = await loadFrame();
       build(f);
@@ -440,7 +505,9 @@
         return;
       }
       report('불러오는 중…');
+      if (isNds) { startNds(); return; }
       try {
+        const { default: mGBA } = await import('./mgba/mgba.js');
         M = await mGBA({ canvas: $('#screen') });
       } catch (e) { report('에뮬레이터 시작 실패: ' + (e.message || e)); return; }
       await M.FSInit();
@@ -487,6 +554,57 @@
       $('#fadein').classList.add('off');
     })();
 
+    // ---------- DS (EmulatorJS melonDS) ----------
+    async function startNds() {
+      const srv = PREVIEW ? null : await serverSave();
+      Object.assign(window, {
+        EJS_player: '#ejs', EJS_core: 'melonds', EJS_gameUrl: 'roms/' + G.rom, EJS_gameName: G.slot,
+        EJS_pathtodata: 'ejs/data/', EJS_DEBUG_XX: true, EJS_startOnLoaded: true,
+        EJS_disableDatabases: true, EJS_volume: PREVIEW ? 0 : 1, EJS_color: G.c2, EJS_backgroundColor: '#000',
+        EJS_Buttons: { playPause: false, restart: false, mute: false, settings: false, fullscreen: false, saveState: false,
+                       loadState: false, screenRecord: false, gamepad: false, cheat: false, volume: false, saveSavFiles: false,
+                       loadSavFiles: false, quickSave: false, quickLoad: false, screenshot: false, cacheManager: false,
+                       exitEmulation: false, netplay: false, diskButton: false, contextMenu: false },
+      });
+      window.EJS_onGameStart = () => {
+        const e = EJ(), gm = e.gameManager;
+        report('');
+        try { e.virtualGamepad && (e.virtualGamepad.style.display = 'none'); } catch (_) {}
+        if (PREVIEW) return;
+        const path = gm.getSaveFilePath();
+        if (srv) {
+          try { gm.FS.writeFile(path, srv); gm.loadSaveFiles(); lamp('ok'); } catch (_) { lamp('fail', '세이브를 넣지 못했습니다'); }
+        } else if (srv === null) { lamp('ok', '새 게임'); setTimeout(() => lamp('ok', ''), 3000); }
+        else lamp('fail', '서버에 연결 안 됨 — 이 기기의 세이브로');
+        sent = srv || null;
+        // the game writes save RAM only when saving in game; poll it and send it when it changed
+        setInterval(() => {
+          if (asleep) return;
+          let d = null;
+          try { d = gm.getSaveFile(); } catch (_) {}
+          if (!d || !d.length || d.every((b) => b === 0xff) || d.every((b) => b === 0)) return;
+          if (sent && sent.length === d.length && sent.every((b, i) => b === d[i])) return;
+          uploadNds(d);
+        }, 2000);
+        bindInput();
+        playing = true;
+        sleep(document.hidden);
+        $('#fadein').classList.add('off');
+      };
+      const sc = document.createElement('script');
+      sc.src = 'ejs/data/loader.js';
+      sc.onerror = () => report('에뮬레이터를 받지 못했습니다');
+      document.body.appendChild(sc);
+    }
+    async function uploadNds(d) {
+      lamp('busy');
+      try {
+        const r = await fetch(SAVE_URL, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: d.slice() });
+        if (r.ok) sent = d.slice();
+        lamp(r.ok ? 'ok' : 'fail', r.ok ? '' : '서버 저장 실패');
+      } catch (e) { lamp('fail', '서버에 연결 안 됨'); }
+    }
+
     function skipToTitle() {
       const s = PREVIEW_SKIP[id];
       let frames = 0;
@@ -521,7 +639,8 @@
       if (!playing || on === asleep) return;
       asleep = on;
       try {
-        if (on) { M.pauseGame(); M.pauseAudio(); } else { M.resumeGame(); M.resumeAudio(); }
+        if (isNds) { const e = EJ(); if (e) { e.gameManager.toggleMainLoop(on ? 0 : 1); } }
+        else if (on) { M.pauseGame(); M.pauseAudio(); } else { M.resumeGame(); M.resumeAudio(); }
       } catch (e) {}
     }
     document.addEventListener('visibilitychange', () => sleep(document.hidden));
@@ -529,16 +648,17 @@
     addEventListener('pageshow', () => sleep(document.hidden));
 
     async function goHome() {
-      if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
+      if (isNds) { try { const e = EJ(); const d = e && e.gameManager.getSaveFile(); if (d && d.length && !(sent && sent.length === d.length && sent.every((b, i) => b === d[i]))) await uploadNds(d); } catch (e) {} }
+      else if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
       location.href = './';
     }
     $('#home').addEventListener('click', goHome);
-    $('#speed').addEventListener('click', () => M && nextSpeed());
+    $('#speed').addEventListener('click', () => (M || EJ()) && nextSpeed());
     // the same two on the full-height body (built later, so listen on the document)
     document.addEventListener('click', (e) => {
       const t = e.target.closest && e.target.closest('#homeKey, #speedKey');
       if (!t) return;
-      if (t.id === 'homeKey') goHome(); else if (M) nextSpeed();
+      if (t.id === 'homeKey') goHome(); else if (M || EJ()) nextSpeed();
     });
   </script>
 </body>

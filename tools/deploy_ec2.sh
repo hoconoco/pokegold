@@ -28,8 +28,11 @@ PAIRS=("web/index.html|index.html" "web/play.html|play.html" "web/favicon.svg|fa
        ".build/kr/pokegold_kr.gbc|roms/gold.gbc" ".build/kr/pokesilver_kr.gbc|roms/silver.gbc"
        "$B/ruby/ruby_kr_mod_2.2.1.gba|roms/ruby.gba" "$B/sapphire/sapphire_kr_mod_2.2.1.gba|roms/sapphire.gba"
        "$B/fr/firered_kr_mod_2.2.0.gba|roms/firered.gba" "$B/lg/leafgreen_kr_mod_2.2.0.gba|roms/leafgreen.gba"
-       "$B/em/emerald_kr_mod_2.3.1.gba|roms/emerald.gba")
-for g in yellow gold silver ruby sapphire firered leafgreen emerald; do
+       "$B/em/emerald_kr_mod_2.3.1.gba|roms/emerald.gba"
+       "../REA_repo/.build/gen4/out/platinum_kr_mod_0.1.0.nds|roms/platinum.nds" "web/title/platinum.png|title/platinum.png")
+# DS core (EmulatorJS + melonDS, web/ejs/): every file at the same path
+while IFS= read -r f; do PAIRS+=("$f|${f#web/}"); done < <(find web/ejs -type f | sort)
+for g in yellow gold silver ruby sapphire firered leafgreen emerald; do  # platinum: picture only (no title music yet)
   PAIRS+=("web/title/$g.png|title/$g.png" "web/title/$g.m4a|title/$g.m4a")
 done
 for f in web/frames/*.webp; do [ -f "$f" ] && PAIRS+=("$f|frames/$(basename "$f")"); done
@@ -82,12 +85,12 @@ REMOTE
 fi
 
 for pr in "${PAIRS[@]}"; do [ -f "${pr%%|*}" ] || { echo "missing: ${pr%%|*} (title files: python -X utf8 tools/make_titles.py)"; exit 1; }; done
-ssh "${O[@]}" "$H" "mkdir -p /srv/pokegold/web/mgba /srv/pokegold/web/roms /srv/pokegold/web/frames /srv/pokegold/web/title"
+ssh "${O[@]}" "$H" "mkdir -p /srv/pokegold/web/mgba /srv/pokegold/web/roms /srv/pokegold/web/frames /srv/pokegold/web/title $(find web/ejs -type d | sed 's|^web/|/srv/pokegold/web/|' | xargs)"
 for pr in "${PAIRS[@]}"; do scp "${O[@]}" -q "${pr%%|*}" "$H:/srv/pokegold/web/${pr#*|}.new"; done
 scp "${O[@]}" -q tools/web_server.py "$H:/srv/pokegold/web_server.py.new"
-R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && shopt -s nullglob && for f in web/*.new web/*/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
+R=$(ssh "${O[@]}" "$H" "cd /srv/pokegold && shopt -s nullglob && for f in web/*.new web/*/*.new web/ejs/*/*.new web/ejs/*/*/*.new web/ejs/*/*/*/*.new web_server.py.new; do mv \"\$f\" \"\${f%.new}\"; done \
   && sudo systemctl restart pokegold-web && sleep 2 && systemctl is-active pokegold-web \
-  && cd web && sha256sum *.* mgba/* roms/* title/* && { ls frames/* >/dev/null 2>&1 && sha256sum frames/* || true; } && cd .. && sha256sum web_server.py")
+  && cd web && sha256sum *.* mgba/* roms/* title/* && find ejs -type f -exec sha256sum {} + && { ls frames/* >/dev/null 2>&1 && sha256sum frames/* || true; } && cd .. && sha256sum web_server.py")
 echo "$R"
 ok=1
 for pr in "${PAIRS[@]}" "tools/web_server.py|web_server.py"; do

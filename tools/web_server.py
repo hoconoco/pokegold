@@ -23,7 +23,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-MAX_SAVE_BYTES = 256 * 1024  # GBA flash saves are 128 KiB (+ mGBA footer); Gold uses 32 KiB
+MAX_SAVE_BYTES = 1024 * 1024  # DS (Platinum) 512 KiB, GBA flash 128 KiB (+ mGBA footer), Gold 32 KiB
 BACKUP_KEEP = 30
 # slot -> (save file, backup name prefix)
 SLOTS = {
@@ -37,6 +37,7 @@ SLOTS = {
     "firered": ("save-firered.sav", "save-firered-"),
     "leafgreen": ("save-leafgreen.sav", "save-leafgreen-"),
     "emerald": ("save-emerald.sav", "save-emerald-"),
+    "platinum": ("save-platinum.sav", "save-platinum-"),
 }
 
 
