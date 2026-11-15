@@ -36,3 +36,6 @@
 *.2bpp binary diff=hex
 *.1bpp binary diff=hex
 *.wasm binary
+
+# web DS core archives (EmulatorJS)
+*.data binary
