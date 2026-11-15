@@ -19,6 +19,8 @@ New routines go into the zero-filled tail of the bank that calls them.
 - Korean text (tools/kr_charset.py encoding, text box codes TX_* below): the legends' cry text, and Prof. Elm
   asks before the party menu (yes/no) and says why when the chosen mon cannot evolve (the English mod has no
   Elm text).
+- sure hit: the player's moves skip the accuracy roll (opponent moves, Protect, Fly/Dig, Lock-On, Dream Eater and
+  substitute drain checks unchanged) — BattleCommand_CheckHit's X Accuracy check returns 'always hit' on the player's turn.
 - guide menu: START menu '공략' (tools/kr_guide.py, Korean text with tools/kr_charset.py).
 
 Usage: python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out pokegold_kr.gbc
@@ -68,7 +70,7 @@ SHINY_SPDSPC = 0xAA
 BASESTATS_LEN = 7
 
 # free space: (file offset of first usable byte, end) at the zero tail of each bank
-FREE = {0x03: 0xFA00, 0x05: 0x17800, 0x0F: 0x3FF10}
+FREE = {0x03: 0xFA00, 0x05: 0x17800, 0x0D: 0x37FA0, 0x0F: 0x3FF10}  # 0x0D: the last 106 bytes of the battle-effects bank are zero (gold and silver)
 
 
 def lo_hi(v):
@@ -181,6 +183,19 @@ def patch_shiny(r):
         0x21, *lo_hi(KR["wEggMonDVs"]), 0x7E, 0xE6, 0xF0, 0xF6, 0x2A, 0x22, 0x36, SHINY_SPDSPC,
         0x21, *lo_hi(KR["wStringBuffer1"]), 0xC9]))
     r.put("egg: shiny", off + 9, [0x21, 0x36, 0xD0], [0xCD, *lo_hi(egg_shiny)])
+
+
+def patch_sure_hit(r):
+    # BattleCommand_CheckHit: call .XAccuracy / ret nz / ld a,BATTLE_VARS_MOVE_EFFECT / call GetBattleVar / cp EFFECT_ALWAYS_HIT / ret z
+    off = r.find("sure hit", "CD ?? ?? C0 3E ?? CD ?? ?? FE ?? C8")
+    xacc = r.d[off + 1] | r.d[off + 2] << 8
+    # hBattleTurn from the accuracy load right after it: ld a,[wPlayerMoveStruct+MOVE_ACC] / ld b,a / ldh a,[hBattleTurn] / and a / jr z
+    acc = r.find("sure hit turn", "FA ?? ?? 47 F0 ?? A7 28 ?? FA ?? ?? 47")
+    assert 0 < acc - off < 0x20, "sure hit: accuracy load not right after"
+    turn = r.d[acc + 5]
+    # ldh a,[hBattleTurn] / and a / jr nz,.enemy / inc a (nz = hit) / ret / .enemy: jp .XAccuracy (X Accuracy as before)
+    sure = r.alloc("SureHit", 0x0D, lambda org: bytes([0xF0, turn, 0xA7, 0x20, 0x02, 0x3C, 0xC9, 0xC3, *lo_hi(xacc)]))
+    r.put("sure hit: player always hits", off, r.d[off:off + 3], [0xCD, *lo_hi(sure)])
 
 
 def patch_exp(r):
@@ -564,6 +579,7 @@ def main():
     r = Rom(data)
     patch_shiny(r)
     patch_exp(r)
+    patch_sure_hit(r)
     wild_start = patch_wild_src(r, en_rom, en_sym, version, args.repo)
     patch_legends(r, en_rom)
     patch_exp5(r)
