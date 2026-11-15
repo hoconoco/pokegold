@@ -37,6 +37,8 @@ SLOTS = {
     "firered": ("save-firered.sav", "save-firered-"),
     "leafgreen": ("save-leafgreen.sav", "save-leafgreen-"),
     "emerald": ("save-emerald.sav", "save-emerald-"),
+    "diamond": ("save-diamond.sav", "save-diamond-"),
+    "pearl": ("save-pearl.sav", "save-pearl-"),
     "platinum": ("save-platinum.sav", "save-platinum-"),
 }
 
