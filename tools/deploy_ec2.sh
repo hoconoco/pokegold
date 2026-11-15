@@ -26,9 +26,9 @@ PAIRS=("web/index.html|index.html" "web/play.html|play.html" "web/favicon.svg|fa
        "web/mgba/mgba.js|mgba/mgba.js" "web/mgba/mgba.wasm|mgba/mgba.wasm" "web/mgba/LICENSE.txt|mgba/LICENSE.txt"
        "$B/yellow/pokemon_yellow_kr_0.9.0.gba|roms/yellow.gba"
        ".build/kr/pokegold_kr.gbc|roms/gold.gbc" ".build/kr/pokesilver_kr.gbc|roms/silver.gbc"
-       "$B/ruby/ruby_kr_mod_2.2.0.gba|roms/ruby.gba" "$B/sapphire/sapphire_kr_mod_2.2.0.gba|roms/sapphire.gba"
+       "$B/ruby/ruby_kr_mod_2.2.1.gba|roms/ruby.gba" "$B/sapphire/sapphire_kr_mod_2.2.1.gba|roms/sapphire.gba"
        "$B/fr/firered_kr_mod_2.2.0.gba|roms/firered.gba" "$B/lg/leafgreen_kr_mod_2.2.0.gba|roms/leafgreen.gba"
-       "$B/em/emerald_kr_mod_2.3.0.gba|roms/emerald.gba")
+       "$B/em/emerald_kr_mod_2.3.1.gba|roms/emerald.gba")
 for g in yellow gold silver ruby sapphire firered leafgreen emerald; do
   PAIRS+=("web/title/$g.png|title/$g.png" "web/title/$g.m4a|title/$g.m4a")
 done
