@@ -558,7 +558,49 @@
     })();
 
     // ---------- DS (EmulatorJS melonDS) ----------
+    // The core reads a press position in the canvas's own pixels (480 x 720 for the stacked screens), but the
+    // browser reports it in page pixels of the smaller drawn canvas, so the lower screen was out of reach.
+    // Presses on the canvas (finger or mouse) are taken here first and sent on as mouse events scaled to the
+    // canvas's own pixels; a finger becomes the left button, so the browser's own mouse copy is cancelled.
+    function ndsTouchFix() {
+      let down = false;
+      const cv = () => document.querySelector('#ejs canvas');
+      const send = (type, x, y) => {
+        const c = cv(), b = c.getBoundingClientRect();
+        const sx = c.width / b.width, sy = c.height / b.height;
+        c.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mouseup' ? 0 : 1,
+          clientX: b.left + (x - b.left) * sx, clientY: b.top + (y - b.top) * sy }));
+      };
+      const take = (e) => { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); };
+      // the core looks once a frame: a quick tap is held at least 100 ms so it is not missed
+      let downAt = 0;
+      const up = (x, y) => setTimeout(() => send('mouseup', x, y), Math.max(0, 100 - (performance.now() - downAt)));
+      addEventListener('mousedown', (e) => { if (!e.isTrusted || e.target !== cv()) return; take(e); down = true; downAt = performance.now(); send('mousedown', e.clientX, e.clientY); }, { capture: true, passive: false });
+      addEventListener('mousemove', (e) => { if (!e.isTrusted || !cv() || (e.target !== cv() && !down)) return; take(e); send('mousemove', e.clientX, e.clientY); }, { capture: true, passive: false });
+      addEventListener('mouseup', (e) => { if (!e.isTrusted || !down) return; take(e); down = false; up(e.clientX, e.clientY); }, { capture: true, passive: false });
+      // a click on the canvas would make EmulatorJS lock the mouse pointer (relative motion) — not wanted here
+      addEventListener('click', (e) => { if (e.target === cv()) take(e); }, { capture: true, passive: false });
+      let tid = null;
+      addEventListener('touchstart', (e) => {
+        if (!e.isTrusted || tid !== null) return;
+        const t = [...e.changedTouches].find((t) => t.target === cv());
+        if (!t) return;
+        take(e); tid = t.identifier; send('mousemove', t.clientX, t.clientY); downAt = performance.now(); send('mousedown', t.clientX, t.clientY);
+      }, { capture: true, passive: false });
+      addEventListener('touchmove', (e) => {
+        const t = tid === null ? null : [...e.changedTouches].find((t) => t.identifier === tid);
+        if (!e.isTrusted || !t) return;
+        take(e); send('mousemove', t.clientX, t.clientY);
+      }, { capture: true, passive: false });
+      for (const ev of ['touchend', 'touchcancel']) addEventListener(ev, (e) => {
+        const t = tid === null ? null : [...e.changedTouches].find((t) => t.identifier === tid);
+        if (!e.isTrusted || !t) return;
+        take(e); tid = null; up(t.clientX, t.clientY);
+      }, { capture: true, passive: false });
+    }
+
     async function startNds() {
+      ndsTouchFix();
       const srv = PREVIEW ? null : await serverSave();
       Object.assign(window, {
         EJS_player: '#ejs', EJS_core: 'melonds', EJS_gameUrl: 'roms/' + G.rom, EJS_gameName: G.slot,
@@ -572,6 +614,9 @@
       window.EJS_onGameStart = () => {
         const e = EJ(), gm = e.gameManager;
         report('');
+        // the core's default touch mode 'Mouse' moves a cursor by relative motion; 'Touch' presses where the finger
+        // (or click) is. Set here: EJS_defaultOptions did not reach the core when its settings menu is hidden.
+        try { gm.setVariable('melonds_touch_mode', 'Touch'); } catch (_) {}
         try { e.virtualGamepad && (e.virtualGamepad.style.display = 'none'); } catch (_) {}
         if (PREVIEW) return;
         const path = gm.getSaveFilePath();
