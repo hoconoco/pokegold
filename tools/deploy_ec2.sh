@@ -30,8 +30,8 @@ PAIRS=("web/index.html|index.html" "web/play.html|play.html" "web/favicon.svg|fa
        "$B/fr/firered_kr_mod_2.2.0.gba|roms/firered.gba" "$B/lg/leafgreen_kr_mod_2.2.0.gba|roms/leafgreen.gba"
        "$B/em/emerald_kr_mod_2.3.1.gba|roms/emerald.gba"
        "../REA_repo/.build/gen4/out/platinum_kr_mod_0.1.7.nds|roms/platinum.nds" "web/title/platinum.png|title/platinum.png"
-       "../REA_repo/.build/gen4/dp/out/diamond_kr_mod_0.1.5.nds|roms/diamond.nds" "web/title/diamond.png|title/diamond.png"
-       "../REA_repo/.build/gen4/dp/out/pearl_kr_mod_0.1.5.nds|roms/pearl.nds" "web/title/pearl.png|title/pearl.png")
+       "../REA_repo/.build/gen4/dp/out/diamond_kr_mod_0.1.6.nds|roms/diamond.nds" "web/title/diamond.png|title/diamond.png"
+       "../REA_repo/.build/gen4/dp/out/pearl_kr_mod_0.1.6.nds|roms/pearl.nds" "web/title/pearl.png|title/pearl.png")
 # DS core (EmulatorJS + melonDS, web/ejs/): every file at the same path
 while IFS= read -r f; do PAIRS+=("$f|${f#web/}"); done < <(find web/ejs -type f | sort)
 for g in yellow gold silver ruby sapphire firered leafgreen emerald; do  # DS(diamond·pearl·platinum): picture only (no title music yet)
