@@ -6,6 +6,8 @@
 - GET  /api/save?slot=<slot>    current save of that game (404 if none yet)
 - PUT  /api/save?slot=<slot>    replace it; the previous one is kept in backups/
                                (newest BACKUP_KEEP files per slot)
+- POST /api/report            bug report from the play screen (JSON: game, rom, text, time, ua, png, save — base64);
+                               kept in reports/<time>_<game>/ as report.json, screen.png, save.sav
   Slots and files: SLOTS below. Gold/Silver Korean keep their first names (kr, kr_silver), the
   English ones stay readable but the site no longer offers them.
 
@@ -15,6 +17,8 @@ Usage: python3 tools/web_server.py --web-dir DIR --data-dir DIR [--port 8789]
 """
 
 import argparse
+import base64
+import json
 import re
 import shutil
 import time
@@ -25,6 +29,7 @@ from urllib.parse import parse_qs, urlsplit
 
 MAX_SAVE_BYTES = 1024 * 1024  # DS (Platinum) 512 KiB, GBA flash 128 KiB (+ mGBA footer), Gold 32 KiB
 BACKUP_KEEP = 30
+MAX_REPORT_BYTES = 4 * 1024 * 1024   # picture + save as base64 JSON
 # slot -> (save file, backup name prefix)
 SLOTS = {
     "en": ("save.sav", "save-2"),
@@ -138,6 +143,30 @@ class Handler(SimpleHTTPRequestHandler):
         tmp = save.with_suffix(".tmp")
         tmp.write_bytes(body)
         tmp.replace(save)
+        self._ok()
+
+    def do_POST(self):
+        if self.path.split("?")[0] != "/api/report":
+            return self.send_error(405)
+        length = int(self.headers.get("Content-Length", 0))
+        if not 0 < length <= MAX_REPORT_BYTES:
+            return self.send_error(400, "bad report size")
+        try:
+            r = json.loads(self.rfile.read(length))
+            game = re.sub(r"[^a-z0-9_]", "", str(r.get("game", "")))[:20] or "unknown"
+            text = str(r.get("text", ""))[:1000]
+            png = base64.b64decode(r["png"]) if r.get("png") else None
+            save = base64.b64decode(r["save"]) if r.get("save") else None
+        except (ValueError, KeyError, TypeError):
+            return self.send_error(400, "bad report")
+        folder = self.data_dir / "reports" / f"{time.strftime('%Y%m%d-%H%M%S')}_{game}"
+        folder.mkdir(parents=True, exist_ok=True)
+        meta = {k: r.get(k) for k in ("game", "rom", "time", "ua")} | {"text": text}
+        (folder / "report.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+        if png:
+            (folder / "screen.png").write_bytes(png)
+        if save and len(save) <= MAX_SAVE_BYTES:
+            (folder / "save.sav").write_bytes(save)
         self._ok()
 
     def _ok(self):

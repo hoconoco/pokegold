@@ -127,6 +127,21 @@
     #fadein.off { opacity: 0; }
     /* the full-height body has its own game-select and speed keys */
     body.fullbody #corner { display: none; }
+    /* bug report: small button at the top centre (every layout) and a dialog with the captured picture */
+    #bugBtn { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 30; font: 600 12px/1 system-ui, sans-serif;
+              padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(20,20,24,.55); color: #fff; }
+    #bugDlg { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.6); }
+    #bugDlg.open { display: flex; }
+    #bugDlg .box { width: min(92vw, 420px); background: #1d1f24; color: #eee; border-radius: 14px; padding: 14px; font: 14px/1.4 system-ui, sans-serif; }
+    #bugDlg img { width: 100%; image-rendering: pixelated; border-radius: 6px; background: #000; }
+    #bugDlg textarea { width: 100%; box-sizing: border-box; margin: 10px 0; min-height: 70px; font: 15px/1.4 system-ui, sans-serif;
+                       border-radius: 8px; border: 1px solid #555; background: #111; color: #eee; padding: 8px; }
+    #bugDlg .row { display: flex; gap: 8px; justify-content: flex-end; }
+    #bugDlg button { font: 600 14px system-ui, sans-serif; padding: 8px 16px; border-radius: 8px; border: 0; }
+    #bugSend { background: #f2c14e; color: #1a1405; }
+    #bugCancel { background: #3a3d44; color: #eee; }
+    #bugNote { font-size: 12px; color: #aaa; min-height: 16px; }
+    body.preview #bugBtn { display: none; }
     /* preview: the picture only */
     body.preview #corner, body.preview #msg, body.preview #fadein { display: none; }
   </style>
@@ -138,6 +153,13 @@
     <button id="speed" type="button" aria-label="게임 속도">×1</button>
   </div>
   <div id="msg"></div>
+  <button id="bugBtn" type="button">버그 신고</button>
+  <div id="bugDlg"><div class="box">
+    <img id="bugImg" alt="지금 화면">
+    <textarea id="bugText" maxlength="500" placeholder="무엇이 이상한가요? 짧게 적어 주세요"></textarea>
+    <div id="bugNote"></div>
+    <div class="row"><button id="bugCancel" type="button">취소</button><button id="bugSend" type="button">보내기</button></div>
+  </div></div>
   <div id="fadein"></div>
 
   <script type="module">
@@ -467,13 +489,14 @@
                      KeyX: 'A', KeyZ: 'B', Enter: 'Start', Tab: 'Select', KeyA: 'L', KeyS: 'R', KeyC: 'X', KeyV: 'Y' };
       if (M) M.toggleInput(false);  // keyboard goes through the same path as touch
       addEventListener('keydown', (e) => {
+        if (e.target && e.target.id === 'bugText') return;   // typing a bug report is not game input
         if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (!e.repeat) nextSpeed(); return; }
         const k = KEYS[e.code];
         if (!k) return;
         e.preventDefault();
         if (!e.repeat) press(k, true);
       });
-      addEventListener('keyup', (e) => { const k = KEYS[e.code]; if (k) press(k, false); });
+      addEventListener('keyup', (e) => { if (e.target && e.target.id === 'bugText') return; const k = KEYS[e.code]; if (k) press(k, false); });
     }
     let speedIdx = 0;
     function nextSpeed() {
@@ -703,6 +726,47 @@
       else if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
       location.href = './';
     }
+    // ---------- bug report: picture of the screen + a short note (+ the current save) to the server ----------
+    let bugPng = null;
+    async function capture() {
+      if (isNds) { const e = EJ(); return e ? new Uint8Array(await e.gameManager.screenshot()) : null; }
+      const name = 'bug.png';
+      if (!M || !M.screenshot(name)) return null;
+      return M.FS.readFile(`${M.filePaths().screenshotsPath}/${name}`);
+    }
+    function currentSave() {
+      try { if (isNds) { const e = EJ(); return e && e.gameManager.getSaveFile(); } return M && M.getSave(); } catch (e) { return null; }
+    }
+    const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+    async function openBug() {
+      $('#bugNote').textContent = '';
+      try { bugPng = await capture(); } catch (e) { bugPng = null; }
+      $('#bugImg').src = bugPng ? URL.createObjectURL(new Blob([bugPng], { type: 'image/png' })) : '';
+      $('#bugImg').style.display = bugPng ? '' : 'none';
+      if (!bugPng) $('#bugNote').textContent = '화면을 찍지 못했습니다(글만 보냅니다)';
+      $('#bugDlg').classList.add('open');
+      sleep(true);
+      $('#bugText').focus();
+    }
+    function closeBug() { $('#bugDlg').classList.remove('open'); $('#bugText').blur(); sleep(document.hidden); }
+    async function sendBug() {
+      const text = $('#bugText').value.trim();
+      if (!text) { $('#bugNote').textContent = '설명을 적어 주세요'; return; }
+      $('#bugNote').textContent = '보내는 중…';
+      const sv = currentSave();
+      const body = { game: id, rom: G.rom, text, time: new Date().toISOString(), ua: navigator.userAgent,
+                     png: bugPng ? b64(bugPng) : null, save: sv && sv.length ? b64(sv) : null };
+      try {
+        const r = await fetch('api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) throw new Error(r.status);
+        $('#bugText').value = '';
+        $('#bugNote').textContent = '보냈습니다. 고맙습니다!';
+        setTimeout(closeBug, 900);
+      } catch (e) { $('#bugNote').textContent = '보내지 못했습니다 — 잠시 뒤 다시 눌러 주세요'; }
+    }
+    $('#bugBtn').addEventListener('click', openBug);
+    $('#bugCancel').addEventListener('click', closeBug);
+    $('#bugSend').addEventListener('click', sendBug);
     $('#home').addEventListener('click', goHome);
     $('#speed').addEventListener('click', () => (M || EJ()) && nextSpeed());
     // the same two on the full-height body (built later, so listen on the document)
