@@ -40,6 +40,8 @@ SLOTS = {
     "diamond": ("save-diamond.sav", "save-diamond-"),
     "pearl": ("save-pearl.sav", "save-pearl-"),
     "platinum": ("save-platinum.sav", "save-platinum-"),
+    "heartgold": ("save-heartgold.sav", "save-heartgold-"),
+    "soulsilver": ("save-soulsilver.sav", "save-soulsilver-"),
 }
 
 
