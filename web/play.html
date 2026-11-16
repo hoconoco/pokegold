@@ -205,7 +205,7 @@
       platinum: { frames: 900, button: 'Start' },
       heartgold: { frames: 1500, button: 'Start' }, soulsilver: { frames: 1500, button: 'Start' },
     };
-    const SPEEDS = [1, 2, 3];
+    const SPEEDS = [1, 2, 3, 5, 10];   // 사용자 신고(2026-11-17): 하트골드 ×3으로는 느림 — ×10까지
 
     const q = new URLSearchParams(location.search);
     const id = GAMES[q.get('game')] ? q.get('game') : 'gold';
@@ -729,7 +729,14 @@
     // ---------- bug report: picture of the screen + a short note (+ the current save) to the server ----------
     let bugPng = null;
     async function capture() {
-      if (isNds) { const e = EJ(); return e ? new Uint8Array(await e.gameManager.screenshot()) : null; }
+      if (isNds) {   // the core's own screenshot is black with the GPU renderer — copy the drawn canvas right after a frame instead
+        const e = EJ();
+        if (!e) return null;
+        return await new Promise((res) => requestAnimationFrame(() => {
+          try { e.screenshot((blob) => blob.arrayBuffer().then((b) => res(new Uint8Array(b)), () => res(null)), 'canvas', 'png', 0); }
+          catch (_) { res(null); }
+        }));
+      }
       const name = 'bug.png';
       if (!M || !M.screenshot(name)) return null;
       return M.FS.readFile(`${M.filePaths().screenshotsPath}/${name}`);
