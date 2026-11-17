@@ -145,6 +145,7 @@
     /* app mode (Android app draws the DS screens under this page): no page background, the screen box is a hole */
     html.app, html.app body { background: transparent; }
     html.app #msg { pointer-events: none; }
+    html.app #fadein { display: none; }
     /* preview: the picture only */
     body.preview #corner, body.preview #msg, body.preview #fadein { display: none; }
   </style>
@@ -668,6 +669,15 @@
       document.addEventListener('pointermove', (e) => { if (down) at(e); });
       for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, () => { if (down) { down = false; PokeApp.release(); } });
       appScreens();
+      // the app window can change size without a resize event here (bars hidden, coming back to the app): send the place again now and then
+      // (사용자 신고 2026-11-17: 다시 들어오면 기기 그림이 크게 확대돼 엉뚱한 자리에 그려짐) — 크기가 바뀌었으면 배치부터 다시
+      let lw = innerWidth, lh = innerHeight;
+      setInterval(() => {
+        if (innerWidth !== lw || innerHeight !== lh) { lw = innerWidth; lh = innerHeight; dispatchEvent(new Event('resize')); }
+        else appScreens();
+      }, 1000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) dispatchEvent(new Event('resize')); });
+      addEventListener('error', (e) => { try { PokeApp.log(String(e.message)); } catch (_) {} });
     }
     async function startNds() {
       ndsTouchFix();
@@ -809,6 +819,7 @@
       $('#bugNote').textContent = '보내는 중…';
       const sv = currentSave();
       const body = { game: id, rom: G.rom, text, time: new Date().toISOString(), ua: navigator.userAgent,
+                     diag: APP && PokeApp.diag ? PokeApp.diag() + ` css=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} layout=${shellLayout} dev=${$("#dev").style.width}x${$("#dev").style.height} ${$("#dev").style.transform}` : null,
                      png: bugPng ? b64(bugPng) : null, save: sv && sv.length ? b64(sv) : null };
       try {
         const r = await fetch('api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

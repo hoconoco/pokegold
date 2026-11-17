@@ -161,7 +161,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_error(400, "bad report")
         folder = self.data_dir / "reports" / f"{time.strftime('%Y%m%d-%H%M%S')}_{game}"
         folder.mkdir(parents=True, exist_ok=True)
-        meta = {k: r.get(k) for k in ("game", "rom", "time", "ua")} | {"text": text}
+        meta = {k: r.get(k) for k in ("game", "rom", "time", "ua")} | {"text": text, "diag": str(r.get("diag") or "")[:2000]}
         (folder / "report.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
         if png:
             (folder / "screen.png").write_bytes(png)
