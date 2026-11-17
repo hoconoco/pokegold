@@ -23,8 +23,8 @@ New routines go into the zero-filled tail of the bank that calls them.
   substitute drain checks unchanged) — BattleCommand_CheckHit's X Accuracy check returns 'always hit' on the player's turn.
 - guide menu: START menu '공략' (tools/kr_guide.py, Korean text with tools/kr_charset.py).
 
-Usage: python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out pokegold_kr.gbc
-       python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr_silver.gbc --out pokesilver_kr.gbc
+Usage: python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out .build/kr/pokegold_kr.gbc
+       python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr_silver.gbc --out .build/kr/pokesilver_kr.gbc
 """
 
 import argparse
