@@ -469,6 +469,21 @@ def patch_route1_kanto_starters(r):
         r.put(f"route1: slot 2.{slot}", o, r.d[o:o + 1], [sp])
 
 
+# In-game trades give fixed DVs (NPCTrades, 32 bytes per trade: DVs at +14/+15) — made shiny like the 3rd-generation
+# mods' traded Pokemon (user request 2026-11-17): Defense/Speed/Special 10, Attack the nearest shiny value (keeps it close
+# to the original, so the gender the attack DV decides changes as little as possible).
+SHINY_ATK = (2, 3, 6, 7, 10, 11, 14, 15)
+
+
+def patch_trade_shiny(r):
+    t = r.find("trades: table", "00 60 42 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 37 66")
+    for k in range(6):
+        e = t + 0x20 * k
+        atk = r.d[e + 14] >> 4
+        atk = min(SHINY_ATK, key=lambda v: (abs(v - atk), -v))
+        r.put(f"trades: {k} dvs", e + 14, r.d[e + 14:e + 16], [atk << 4 | 0xA, 0xAA])
+
+
 def patch_even_odds(r):
     """ChooseWildEncounter: the probability bracket loop is replaced by an even species pick
     (same logic as the English engine/overworld/wildmons.asm). Bank $0A has only 56 free bytes,
@@ -647,6 +662,7 @@ def main():
     patch_evo_mart(r)
     patch_route29_starters(r)
     patch_route1_kanto_starters(r)
+    patch_trade_shiny(r)
     patch_guide(r, wild_start, en_rom, en_sym, args.repo)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
