@@ -802,6 +802,9 @@
       } catch (e) {}
     }
     document.addEventListener('visibilitychange', () => sleep(document.hidden));
+    // Android app (GB·GBA in its WebView): it calls these on the home key and when it comes back
+    window.appPause = () => sleep(true);
+    window.appResume = () => sleep(false);
     addEventListener('pagehide', () => sleep(true));
     addEventListener('pageshow', () => sleep(document.hidden));
 

@@ -208,7 +208,9 @@
     };
     // start on the game picked last time, else the first one
     let cur = Math.max(0, GAMES.findIndex((g) => g.id === store.get('shelf_game')));
-    let soundOn = false;
+    // Android app: its WebView may play without a touch — music from the start, like an app's own music
+    let soundOn = !!window.PokeApp;
+    if (soundOn) $('#hint').classList.add('off');
 
     // slides: the title screen over the game's name (the name shows when the picture is missing)
     const car = $('#car');
@@ -239,10 +241,12 @@
     let bgmId = null;
     // Android app: a DS game opens in the app's own screen and this page stays behind it (no page change) —
     // so the white is taken off again and the music waits until the page is touched again (사용자 신고 2026-11-17: 판 바꿀 때 흰 화면)
-    let appAway = false;
-    addEventListener('pointerdown', () => { if (appAway) { appAway = false; music(); } }, true);
+    // Android app: it calls these when this screen is covered (the DS game opened, home key) and shown again
+    let appPaused = false;
+    window.appPause = () => { appPaused = true; bgm.pause(); };
+    window.appResume = () => { appPaused = false; music(); };
     function music() {
-      if (!soundOn || document.hidden || appAway || $('#white').classList.contains('on')) { bgm.pause(); return; }
+      if (!soundOn || document.hidden || appPaused || $('#white').classList.contains('on')) { bgm.pause(); return; }
       // one tune for the whole first screen, like an app's own music — it keeps playing across cards (사용자 2026-11-17)
       if (!bgmId) { bgmId = APP_BGM; bgm.src = `title/${APP_BGM}.m4a`; }
       bgm.volume = 1;
@@ -310,11 +314,10 @@
     function close() { $('#scrim').hidden = true; }
     function start() {
       close();
+      // Android app, DS game: the app gets it ready (download card here) and opens its own screen — the music goes on
+      // until then (사용자 2026-11-17: 플레이하기 전까지 대표 음악 유지), no white
+      if (window.PokeApp && GAMES[cur].ar === '2 / 3') { location.href = `play.html?game=${GAMES[cur].id}`; return; }
       $('#white').classList.add('on');
-      if (window.PokeApp) {   // 앱: DS 판은 앱 화면, GB·GBA 판은 크롬으로 열리고 이 화면은 뒤에 남는다
-        appAway = true;
-        setTimeout(() => $('#white').classList.remove('on'), 2500);
-      }
       // the music fades with the white (phones that fix the volume just stop it at the end)
       const fade = setInterval(() => {
         bgm.volume = Math.max(0, bgm.volume - 0.1);
