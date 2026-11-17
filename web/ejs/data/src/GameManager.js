@@ -143,7 +143,9 @@ class EJS_GameManager {
             "video_gpu_screenshot = false\n" +
             "audio_latency = 64\n" +
             "video_top_portrait_viewport = true\n" +
-            "video_vsync = true\n" +
+            // pokegold: frame pacing by the core's own clock, not one frame per screen refresh — a phone WebView refreshing
+            // at 30 Hz ran the game at half speed (×1 slow, fast-forward looked normal; user report 2026-11-17)
+            "video_vsync = false\n" +
             "video_smooth = false\n" +
             "fastforward_ratio = 3.0\n" +
             // pokegold: no notices drawn into the game picture ("Fast-Forward." etc.), the player shows the speed itself

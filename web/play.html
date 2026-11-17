@@ -559,7 +559,15 @@
     function nextSpeed() {
       speedIdx = (speedIdx + 1) % SPEEDS.length;
       if (APP) PokeApp.speed(SPEEDS[speedIdx]);
-      else if (EJSMODE) { const e = EJ(); if (e) { e.gameManager.setFastForwardRatio(SPEEDS[speedIdx]); e.gameManager.toggleFastForward(SPEEDS[speedIdx] > 1 ? 1 : 0); } }
+      else if (EJSMODE) {
+        // the core takes the ratio only when fast-forward turns on, and an off+on in the same moment is no change:
+        // turn it off, then set the ratio and turn it on a moment later (×2 → ×5 stayed ×2 before)
+        const e = EJ(), x = SPEEDS[speedIdx];
+        if (e) {
+          e.gameManager.toggleFastForward(0);
+          if (x > 1) setTimeout(() => { e.gameManager.setFastForwardRatio(x); e.gameManager.toggleFastForward(1); }, 100);
+        }
+      }
       else M.setFastForwardMultiplier(SPEEDS[speedIdx]);
       const b = $('#speed');
       b.textContent = `×${SPEEDS[speedIdx]}`;
