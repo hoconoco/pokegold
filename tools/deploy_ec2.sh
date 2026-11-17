@@ -33,7 +33,9 @@ PAIRS=("web/index.html|index.html" "web/play.html|play.html" "web/favicon.svg|fa
        "../REA_repo/.build/gen4/hg/out/heartgold_kr_mod_0.1.6.nds|roms/heartgold.nds" "web/title/heartgold.png|title/heartgold.png"
        "../REA_repo/.build/gen4/hg/out/soulsilver_kr_mod_0.1.6.nds|roms/soulsilver.nds" "web/title/soulsilver.png|title/soulsilver.png"
        "../REA_repo/.build/gen4/dp/out/diamond_kr_mod_0.1.9.nds|roms/diamond.nds" "web/title/diamond.png|title/diamond.png"
-       "../REA_repo/.build/gen4/dp/out/pearl_kr_mod_0.1.9.nds|roms/pearl.nds" "web/title/pearl.png|title/pearl.png")
+       "../REA_repo/.build/gen4/dp/out/pearl_kr_mod_0.1.9.nds|roms/pearl.nds" "web/title/pearl.png|title/pearl.png"
+       "../REA_repo/.build/gen5/out/black2_kr_mod_0.1.0.nds|roms/black2.nds" "web/title/black2.png|title/black2.png"
+       "../REA_repo/.build/gen5/out/white2_kr_mod_0.1.0.nds|roms/white2.nds" "web/title/white2.png|title/white2.png")
 # DS core (EmulatorJS + melonDS, web/ejs/): every file at the same path
 while IFS= read -r f; do PAIRS+=("$f|${f#web/}"); done < <(find web/ejs -type f | sort)
 for g in yellow gold silver ruby sapphire firered leafgreen emerald; do  # DS(diamond·pearl·platinum): picture only (no title music yet)

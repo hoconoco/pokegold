@@ -47,6 +47,8 @@ SLOTS = {
     "platinum": ("save-platinum.sav", "save-platinum-"),
     "heartgold": ("save-heartgold.sav", "save-heartgold-"),
     "soulsilver": ("save-soulsilver.sav", "save-soulsilver-"),
+    "black2": ("save-black2.sav", "save-black2-"),
+    "white2": ("save-white2.sav", "save-white2-"),
 }
 
 
