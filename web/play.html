@@ -136,7 +136,9 @@
     /* below the phone's camera hole: the app hides the system bars, so the page reaches the top edge */
     #bugBtn { position: fixed; top: max(6px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 10000; font: 600 12px/1 system-ui, sans-serif;
               padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(20,20,24,.55); color: #fff; }
-    #bugDlg { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.6); }
+    /* near the top: the phone keyboard covers the lower half while typing */
+    #bugDlg { position: fixed; inset: 0; z-index: 10001; display: none; align-items: flex-start; justify-content: center; background: rgba(0,0,0,.6);
+              padding-top: calc(max(6px, env(safe-area-inset-top, 0px)) + 44px); box-sizing: border-box; }
     #bugDlg.open { display: flex; }
     #bugDlg .box { width: min(92vw, 420px); background: #1d1f24; color: #eee; border-radius: 14px; padding: 14px; font: 14px/1.4 system-ui, sans-serif; }
     #bugDlg img { width: 100%; image-rendering: pixelated; border-radius: 6px; background: #000; }
@@ -263,26 +265,12 @@
       } else if (PREVIEW) {
         dev.style.width = SW * 4 + 'px'; dev.style.height = SH * 4 + 'px';
         html += `<div class="part" style="${box(0, 0, SW * 4, SH * 4)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
-      } else if (!isGbc || isNds) {
+      } else {
+        // every game on the drawn device body (Gold/Silver too — 사용자 2026-11-17: 골드·실버 화면이 구식)
         shellLayout = innerWidth > innerHeight ? 'land' : 'port';
         html = shellHtml(shellLayout);
         dev.classList.add('shellui');
         document.body.classList.add('fullbody');
-      } else {
-        // plain: picture on top, buttons below (portrait phone first)
-        const W = 720, gh = Math.round(W * SH / SW);
-        dev.classList.add('plain');
-        dev.style.width = W + 'px'; dev.style.height = gh + 560 + 'px';
-        html += `<div class="part" style="${box(0, 0, W, gh)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
-        html += `<div id="led" class="part" style="${box(10, gh + 14, 14, 14)}"></div>`;
-        const y = gh + 90;
-        const pad = { Up: [110, y, 90, 90], Down: [110, y + 180, 90, 90], Left: [20, y + 90, 90, 90], Right: [200, y + 90, 90, 90],
-                      B: [440, y + 110, 110, 110, 'round'], A: [580, y + 50, 110, 110, 'round'],
-                      Select: [230, y + 340, 110, 44, 'pill'], Start: [380, y + 340, 110, 44, 'pill'] };
-        const label = { Up: '▲', Down: '▼', Left: '◀', Right: '▶', A: 'A', B: 'B', Select: 'SELECT', Start: 'START' };
-        for (const [k, v] of Object.entries(pad)) {
-          html += `<button class="part hot ${v[4] || ''}" data-k="${k}" aria-label="${k}" style="${box(v[0], v[1], v[2], v[3])}">${label[k]}</button>`;
-        }
       }
       dev.innerHTML = html;
       placeCanvas();
@@ -325,12 +313,14 @@
       if (kind === 'land' && isNds) return dsHtml(kind, pad, key, speedText);
       if (kind === 'land') {
         const H = 720, W = Math.max(1300, Math.round(H * innerWidth / innerHeight));
-        let sw = Math.min(840, W - 600), sh = Math.round(sw * 2 / 3);
+        let sw = Math.min(840, W - 600, Math.round(560 * SW / SH)), sh = Math.round(sw * SH / SW);
         const sx = Math.round((W - sw) / 2), sy = 70 + Math.round((560 - sh) / 2);
         const lx = sx / 2, rx = W - sx / 2;
         dev.style.width = W + 'px'; dev.style.height = H + 'px';
-        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(40, 0, 260, 70)}border-radius:40px 14px 0 0">L</button>`;
-        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 300, 0, 260, 70)}border-radius:14px 40px 0 0">R</button>`;
+        if (!isGbc) {
+          html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(40, 0, 260, 70)}border-radius:40px 14px 0 0">L</button>`;
+          html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 300, 0, 260, 70)}border-radius:14px 40px 0 0">R</button>`;
+        }
         html += `<div class="part body" style="${box(0, 30, W, H - 30)}border-radius:48px 48px 0 0"></div>`;
         html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
         html += `<div class="part" id="screenbox" style="${box(sx, sy, sw, sh)}"></div>`;
@@ -345,13 +335,16 @@
         return html;
       }
       if (isNds) return dsHtml(kind, pad, key, speedText);
-      const W = 720, sx = 26, sw = 668, sh = 445;
-      const H = Math.max(1040, Math.round(W * innerHeight / innerWidth));
-      const sy = 72 + Math.round(Math.max(0, H - 1040) * 0.15);
+      const W = 720, sx = 26, sw = 668, sh = Math.round(sw * SH / SW);   // GBA 445, GB 601
+      const minH = 595 + sh;
+      const H = Math.max(minH, Math.round(W * innerHeight / innerWidth));
+      const sy = 72 + Math.round(Math.max(0, H - minH) * 0.15);
       const y0 = sy + sh + 84 + Math.round(Math.max(0, (H - 100) - (sy + sh + 84 + 420)) / 2);
       dev.style.width = W + 'px'; dev.style.height = H + 'px';
-      html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, sy - 72, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
-      html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, sy - 72, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
+      if (!isGbc) {
+        html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, sy - 72, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
+        html += `<button class="part hot shoulder" data-k="R" aria-label="R" style="${box(W - 254, sy - 72, 230, 70)}border-radius:14px 40px 0 0">R</button>`;
+      }
       html += `<div class="part body" style="${box(0, sy - 42, W, H - sy + 42)}border-radius:56px 56px 0 0"></div>`;
       html += key('small" id="homeKey" aria-label="판 선택', W / 2 - 150, H - 88, '판 선택');
       html += key('small" id="speedKey" aria-label="게임 속도', W / 2 + 54, H - 88, speedText, 'speedLabel');
