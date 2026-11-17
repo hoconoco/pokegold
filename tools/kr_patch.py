@@ -412,6 +412,45 @@ def patch_catch(r):
     r.put("catch: always", off + 3, r.d[off + 3:off + 8], [0xC3, r.d[off + 6], r.d[off + 7]])
 
 
+# ---- mod parity (user request 2026-11-17): evolution item shop, like the 3rd/4th-generation mods ----
+EVO_MART_ITEMS = [0x16, 0x18, 0x17, 0x22, 0x08, 0xA9,   # Fire, Water, Thunder, Leaf, Moon, Sun stones
+                  0x52, 0x8F, 0x97, 0xAC]               # King's Rock, Metal Coat, Dragon Scale, Up-Grade
+
+
+def patch_evo_mart(r):
+    """Goldenrod Dept. Store 4F (vitamins) sells evolution items instead. The longer list goes to free space in the
+    marts' bank and the Marts pointer is moved; the Moon Stone gets a price (it is 0 in the original)."""
+    off = r.find("evo mart: 4F list", "05 1B 1C 1D 1F 1A FF")
+    bank, ga = off // 0x4000, gb_addr(off)
+    ptr = r.find("evo mart: pointer", f"{ga & 0xFF:02X} {ga >> 8:02X} ?? {ga >> 8:02X}")  # MartGoldenrod5F1 follows
+    lst = bytes([len(EVO_MART_ITEMS), *EVO_MART_ITEMS, 0xFF])
+    new = r.alloc("evo mart: list", bank, lambda org: lst)
+    r.put("evo mart: pointer", ptr, r.d[ptr:ptr + 2], lo_hi(new))
+    # item attributes: 7 bytes per item from item 1; Fire/Thunder/Water stones (0x16-0x18) cost 2100 (34 08)
+    a = r.find("item attributes", "34 08 00 00 ?? ?? ?? 34 08 00 00 ?? ?? ?? 34 08 00 00 ?? ?? ??")
+    moon = a - (0x16 - 0x08) * 7
+    r.put("evo mart: moon stone price", moon, r.d[moon:moon + 2], lo_hi(2100))
+
+
+# Route 29 grass: three repeated slots per time of day become the three Johto starters (like the 3rd/4th-generation
+# mods' first-route starters, user request 2026-11-17). With the even-odds patch every distinct species is equally likely.
+CHIKORITA, CYNDAQUIL, TOTODILE = 0x98, 0x9B, 0x9E
+
+
+def patch_route29_starters(r):
+    off = r.find("route29: grass slots",
+                 "02 10 03 A1 03 10 02 A1 04 13 04 10 04 10 02 10 03 A1 03 10 02 A1 04 13 04 10 04 10 02 A3 03 A3 03 A3 02 13 04 13 04 A3 04 A3")
+    # morn/day: [Pidgey, Sentret, Pidgey*, Sentret*, Rattata, Pidgey, Pidgey*] -> starters on the starred (repeated) slots
+    for t in (0, 14):
+        for slot, sp in ((2, CHIKORITA), (3, CYNDAQUIL), (6, TOTODILE)):
+            o = off + t + 2 * slot + 1
+            r.put(f"route29: slot {t // 14}.{slot}", o, r.d[o:o + 1], [sp])
+    # nite: [Hoothoot, Hoothoot*, Hoothoot*, Rattata, Rattata, Hoothoot, Hoothoot*]
+    for slot, sp in ((1, CHIKORITA), (2, CYNDAQUIL), (6, TOTODILE)):
+        o = off + 28 + 2 * slot + 1
+        r.put(f"route29: slot 2.{slot}", o, r.d[o:o + 1], [sp])
+
+
 def patch_even_odds(r):
     """ChooseWildEncounter: the probability bracket loop is replaced by an even species pick
     (same logic as the English engine/overworld/wildmons.asm). Bank $0A has only 56 free bytes,
@@ -587,6 +626,8 @@ def main():
     patch_catch(r)
     patch_even_odds(r)
     patch_elm_trade_evo(r)
+    patch_evo_mart(r)
+    patch_route29_starters(r)
     patch_guide(r, wild_start, en_rom, en_sym, args.repo)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
