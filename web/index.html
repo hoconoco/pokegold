@@ -129,7 +129,8 @@
     window.appBusy = (game, title, text, ratio) => {
       const b = document.getElementById('busy');
       const img = document.getElementById('busyImg');
-      img.src = `title/${game}.png`; img.onerror = () => { img.style.display = 'none'; };
+      img.style.display = game ? '' : 'none';
+      if (game) { img.onerror = () => { img.style.display = 'none'; }; img.src = `title/${game}.png`; }
       document.getElementById('busyT').textContent = title;
       document.getElementById('busyS').textContent = text;
       const bar = document.getElementById('busyBar');

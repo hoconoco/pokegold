@@ -223,6 +223,9 @@
     const isNds = G.rom.endsWith('.nds');
     // Android app (pokegold DS app = melonDS): it runs the game natively under this page and gives window.PokeApp
     const APP = isNds && !!window.PokeApp;
+    // EmulatorJS (no threads) for DS, and for GB·GBA where the threaded mGBA web core cannot run: no cross-origin
+    // isolation (the Android app's WebView). Chrome keeps the mGBA web core.
+    const EJSMODE = isNds || !self.crossOriginIsolated;
     if (APP) document.documentElement.classList.add('app');
     const [SW, SH] = isGbc ? [160, 144] : isNds ? [256, 384] : [240, 160];
 
@@ -280,7 +283,7 @@
     function placeCanvas() {
       const slot = $('#screenbox');
       if (!slot || APP) return;   // layouts that write the canvas themselves; app: the screen box stays an empty hole
-      if (!canvasEl && isNds) { canvasEl = document.createElement('div'); canvasEl.id = 'ejs'; canvasEl.style.cssText = 'width:100%;height:100%'; }
+      if (!canvasEl && EJSMODE) { canvasEl = document.createElement('div'); canvasEl.id = 'ejs'; canvasEl.style.cssText = 'width:100%;height:100%'; }
       if (!canvasEl) { canvasEl = document.createElement('canvas'); canvasEl.id = 'screen'; canvasEl.width = SW; canvasEl.height = SH; }
       slot.appendChild(canvasEl);
     }
@@ -494,7 +497,7 @@
       const el = document.querySelector(`[data-k="${k}"]`);
       if (el) el.classList.toggle('on', on);
       if (APP) { PokeApp.key(k, on); return; }
-      if (isNds) { const i = NDS_KEYS[k]; if (i !== undefined && EJ()) EJ().gameManager.simulateInput(0, i, on ? 1 : 0); return; }
+      if (EJSMODE) { const i = NDS_KEYS[k]; if (i !== undefined && EJ()) EJ().gameManager.simulateInput(0, i, on ? 1 : 0); return; }
       on ? M.buttonPress(k) : M.buttonUnpress(k);
     }
     // EmulatorJS input numbers (data/src/emulator.js nds layout)
@@ -526,7 +529,7 @@
     function nextSpeed() {
       speedIdx = (speedIdx + 1) % SPEEDS.length;
       if (APP) PokeApp.speed(SPEEDS[speedIdx]);
-      else if (isNds) { const e = EJ(); if (e) { e.gameManager.setFastForwardRatio(SPEEDS[speedIdx]); e.gameManager.toggleFastForward(SPEEDS[speedIdx] > 1 ? 1 : 0); } }
+      else if (EJSMODE) { const e = EJ(); if (e) { e.gameManager.setFastForwardRatio(SPEEDS[speedIdx]); e.gameManager.toggleFastForward(SPEEDS[speedIdx] > 1 ? 1 : 0); } }
       else M.setFastForwardMultiplier(SPEEDS[speedIdx]);
       const b = $('#speed');
       b.textContent = `×${SPEEDS[speedIdx]}`;
@@ -555,12 +558,13 @@
       const f = await loadFrame();
       build(f);
       if (APP) { startApp(); return; }
-      if (!self.crossOriginIsolated) {
-        report('이 브라우저에서는 게임을 실행할 수 없어요. Chrome에서 열어 주세요');
-        return;
-      }
       report('불러오는 중…');
-      if (isNds) { startNds(); return; }
+      if (EJSMODE) {
+        // layouts that write their own <canvas id="screen"> get the EmulatorJS box instead
+        const c = $('#screen');
+        if (c && c.tagName === 'CANVAS') { const d = document.createElement('div'); d.id = 'ejs'; d.style.cssText = 'width:100%;height:100%'; c.replaceWith(d); canvasEl = d; }
+        startNds(); return;
+      }
       try {
         const { default: mGBA } = await import('./mgba/mgba.js');
         M = await mGBA({ canvas: $('#screen') });
@@ -680,10 +684,10 @@
       addEventListener('error', (e) => { try { PokeApp.log(String(e.message)); } catch (_) {} });
     }
     async function startNds() {
-      ndsTouchFix();
+      if (isNds) ndsTouchFix();
       const srv = PREVIEW ? null : await serverSave();
       Object.assign(window, {
-        EJS_player: '#ejs', EJS_core: 'melonds', EJS_gameUrl: 'roms/' + G.rom, EJS_gameName: G.slot,
+        EJS_player: '#ejs', EJS_core: isNds ? 'melonds' : 'mgba', EJS_gameUrl: 'roms/' + G.rom, EJS_gameName: G.slot,
         EJS_pathtodata: 'ejs/data/', EJS_DEBUG_XX: true, EJS_startOnLoaded: true,
         EJS_disableDatabases: true, EJS_volume: PREVIEW ? 0 : 1, EJS_color: G.c2, EJS_backgroundColor: '#000',
         EJS_Buttons: { playPause: false, restart: false, mute: false, settings: false, fullscreen: false, saveState: false,
@@ -696,10 +700,12 @@
         report('');
         // the core's default touch mode 'Mouse' moves a cursor by relative motion; 'Touch' presses where the finger
         // (or click) is. Set here: EJS_defaultOptions did not reach the core when its settings menu is hidden.
-        try { gm.setVariable('melonds_touch_mode', 'Touch'); } catch (_) {}
+        if (isNds) try { gm.setVariable('melonds_touch_mode', 'Touch'); } catch (_) {}
         try { e.virtualGamepad && (e.virtualGamepad.style.display = 'none'); } catch (_) {}
         if (PREVIEW) return;
         const path = gm.getSaveFilePath();
+        // the web mGBA save can be longer than the core's save RAM (Gold/Silver clock after it): keep that tail and send it back with each save
+        if (srv) { try { const n = gm.getSaveFile().length; if (n && srv.length > n) saveTail = srv.slice(n); } catch (_) {} }
         if (srv) {
           try { gm.FS.writeFile(path, srv); gm.loadSaveFiles(); lamp('ok'); } catch (_) { lamp('fail', '세이브를 넣지 못했습니다'); }
         } else if (srv === null) { lamp('ok', '새 게임'); setTimeout(() => lamp('ok', ''), 3000); }
@@ -709,9 +715,10 @@
         setInterval(() => {
           if (asleep) return;
           let d = null;
-          try { d = gm.getSaveFile(); } catch (_) {}
+          try { d = withTail(gm.getSaveFile()); } catch (_) {}
           if (!d || !d.length || d.every((b) => b === 0xff) || d.every((b) => b === 0)) return;
           if (sent && sent.length === d.length && sent.every((b, i) => b === d[i])) return;
+          if (G.save && sent && sameGameData(d, sent)) return;   // Gold/Silver scratch bank only (see upload)
           uploadNds(d);
         }, 2000);
         bindInput();
@@ -724,6 +731,8 @@
       sc.onerror = () => report('에뮬레이터를 받지 못했습니다');
       document.body.appendChild(sc);
     }
+    let saveTail = null;
+    const withTail = (d) => { if (!d || !saveTail) return d; const o = new Uint8Array(d.length + saveTail.length); o.set(d); o.set(saveTail, d.length); return o; };
     async function uploadNds(d) {
       lamp('busy');
       try {
@@ -767,7 +776,7 @@
       if (!playing || on === asleep) return;
       asleep = on;
       try {
-        if (isNds) { const e = EJ(); if (e) { e.gameManager.toggleMainLoop(on ? 0 : 1); } }
+        if (EJSMODE) { const e = EJ(); if (e) { e.gameManager.toggleMainLoop(on ? 0 : 1); } }
         else if (on) { M.pauseGame(); M.pauseAudio(); } else { M.resumeGame(); M.resumeAudio(); }
       } catch (e) {}
     }
@@ -777,7 +786,7 @@
 
     async function goHome() {
       if (APP) { PokeApp.home(); return; }
-      if (isNds) { try { const e = EJ(); const d = e && e.gameManager.getSaveFile(); if (d && d.length && !(sent && sent.length === d.length && sent.every((b, i) => b === d[i]))) await uploadNds(d); } catch (e) {} }
+      if (EJSMODE) { try { const e = EJ(); const d = withTail(e && e.gameManager.getSaveFile()); if (d && d.length && !(sent && sent.length === d.length && sent.every((b, i) => b === d[i]))) await uploadNds(d); } catch (e) {} }
       else if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
       location.href = './';
     }
@@ -785,7 +794,7 @@
     let bugPng = null;
     async function capture() {
       if (APP) { const b = PokeApp.capture(); return b ? Uint8Array.from(atob(b), (c) => c.charCodeAt(0)) : null; }
-      if (isNds) {   // the core's own screenshot is black with the GPU renderer — copy the drawn canvas right after a frame instead
+      if (EJSMODE) {   // the core's own screenshot is black with the GPU renderer — copy the drawn canvas right after a frame instead
         const e = EJ();
         if (!e) return null;
         return await new Promise((res) => requestAnimationFrame(() => {
@@ -799,7 +808,7 @@
     }
     function currentSave() {
       if (APP) { const b = PokeApp.save(); return b ? Uint8Array.from(atob(b), (c) => c.charCodeAt(0)) : null; }
-      try { if (isNds) { const e = EJ(); return e && e.gameManager.getSaveFile(); } return M && M.getSave(); } catch (e) { return null; }
+      try { if (EJSMODE) { const e = EJ(); return withTail(e && e.gameManager.getSaveFile()); } return M && M.getSave(); } catch (e) { return null; }
     }
     const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
     async function openBug() {
