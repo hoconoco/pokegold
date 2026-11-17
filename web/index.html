@@ -169,8 +169,12 @@
     bgm.loop = true;
     bgm.preload = 'auto';
     let bgmId = null;
+    // Android app: a DS game opens in the app's own screen and this page stays behind it (no page change) —
+    // so the white is taken off again and the music waits until the page is touched again (사용자 신고 2026-11-17: 판 바꿀 때 흰 화면)
+    let appAway = false;
+    addEventListener('pointerdown', () => { if (appAway) { appAway = false; music(); } }, true);
     function music() {
-      if (!soundOn || document.hidden || $('#white').classList.contains('on')) { bgm.pause(); return; }
+      if (!soundOn || document.hidden || appAway || $('#white').classList.contains('on')) { bgm.pause(); return; }
       const id = GAMES[cur].id;
       if (bgmId !== id) { bgmId = id; bgm.src = `title/${id}.m4a`; }
       bgm.volume = 1;
@@ -239,6 +243,10 @@
     function start() {
       close();
       $('#white').classList.add('on');
+      if (window.PokeApp && /^(diamond|pearl|platinum|heartgold|soulsilver)$/.test(GAMES[cur].id)) {
+        appAway = true;
+        setTimeout(() => $('#white').classList.remove('on'), 2500);
+      }
       // the music fades with the white (phones that fix the volume just stop it at the end)
       const fade = setInterval(() => {
         bgm.volume = Math.max(0, bgm.volume - 0.1);
