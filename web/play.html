@@ -142,6 +142,9 @@
     #bugCancel { background: #3a3d44; color: #eee; }
     #bugNote { font-size: 12px; color: #aaa; min-height: 16px; }
     body.preview #bugBtn { display: none; }
+    /* app mode (Android app draws the DS screens under this page): no page background, the screen box is a hole */
+    html.app, html.app body { background: transparent; }
+    html.app #msg { pointer-events: none; }
     /* preview: the picture only */
     body.preview #corner, body.preview #msg, body.preview #fadein { display: none; }
   </style>
@@ -217,6 +220,9 @@
 
     const isGbc = G.rom.endsWith('.gbc');
     const isNds = G.rom.endsWith('.nds');
+    // Android app (pokegold DS app = melonDS): it runs the game natively under this page and gives window.PokeApp
+    const APP = isNds && !!window.PokeApp;
+    if (APP) document.documentElement.classList.add('app');
     const [SW, SH] = isGbc ? [160, 144] : isNds ? [256, 384] : [240, 160];
 
     // ---------- layout ----------
@@ -272,7 +278,7 @@
     let canvasEl = null;
     function placeCanvas() {
       const slot = $('#screenbox');
-      if (!slot) return;   // layouts that write the canvas themselves
+      if (!slot || APP) return;   // layouts that write the canvas themselves; app: the screen box stays an empty hole
       if (!canvasEl && isNds) { canvasEl = document.createElement('div'); canvasEl.id = 'ejs'; canvasEl.style.cssText = 'width:100%;height:100%'; }
       if (!canvasEl) { canvasEl = document.createElement('canvas'); canvasEl.id = 'screen'; canvasEl.width = SW; canvasEl.height = SH; }
       slot.appendChild(canvasEl);
@@ -404,7 +410,7 @@
           shellLayout = kind;
           dev.innerHTML = shellHtml(kind);
           placeCanvas();
-          if (M) bindPointers();
+          if (M || APP) bindPointers();
           lamp(lastLamp);
         }
       }
@@ -416,6 +422,22 @@
       const top = PREVIEW || dev.classList.contains('shellui') ? 0 : 44;   // room for the corner buttons
       const s = Math.min(innerWidth / w, (innerHeight - top) / h);
       dev.style.transform = `translate(-50%, calc(-50% + ${top / 2}px)) scale(${s})`;
+      if (APP) appScreens();
+    }
+    // app: cut the screen box out of the body and bezel (so the native picture shows through) and send its place
+    function appScreens() {
+      const sb = $('#screenbox');
+      if (!sb) return;
+      const px = (el, k) => parseFloat(el.style[k]) || 0;
+      const sx = px(sb, 'left'), sy = px(sb, 'top'), sw = px(sb, 'width'), sh = px(sb, 'height');
+      document.querySelectorAll('#dev .body, #dev .bezel').forEach((el) => {
+        const ex = px(el, 'left'), ey = px(el, 'top'), w = px(el, 'width'), h = px(el, 'height');
+        el.style.clipPath = `path(evenodd, 'M0 0H${w}V${h}H0Z M${sx - ex} ${sy - ey}h${sw}v${sh}h${-sw}Z')`;
+      });
+      requestAnimationFrame(() => {
+        const r = sb.getBoundingClientRect(), d = devicePixelRatio;
+        PokeApp.screens(Math.round(r.left * d), Math.round(r.top * d), Math.round(r.width * d), Math.round(r.height * d));
+      });
     }
 
     // ---------- save ----------
@@ -470,6 +492,7 @@
     function press(k, on) {
       const el = document.querySelector(`[data-k="${k}"]`);
       if (el) el.classList.toggle('on', on);
+      if (APP) { PokeApp.key(k, on); return; }
       if (isNds) { const i = NDS_KEYS[k]; if (i !== undefined && EJ()) EJ().gameManager.simulateInput(0, i, on ? 1 : 0); return; }
       on ? M.buttonPress(k) : M.buttonUnpress(k);
     }
@@ -501,7 +524,8 @@
     let speedIdx = 0;
     function nextSpeed() {
       speedIdx = (speedIdx + 1) % SPEEDS.length;
-      if (isNds) { const e = EJ(); if (e) { e.gameManager.setFastForwardRatio(SPEEDS[speedIdx]); e.gameManager.toggleFastForward(SPEEDS[speedIdx] > 1 ? 1 : 0); } }
+      if (APP) PokeApp.speed(SPEEDS[speedIdx]);
+      else if (isNds) { const e = EJ(); if (e) { e.gameManager.setFastForwardRatio(SPEEDS[speedIdx]); e.gameManager.toggleFastForward(SPEEDS[speedIdx] > 1 ? 1 : 0); } }
       else M.setFastForwardMultiplier(SPEEDS[speedIdx]);
       const b = $('#speed');
       b.textContent = `×${SPEEDS[speedIdx]}`;
@@ -529,6 +553,7 @@
     (async () => {
       const f = await loadFrame();
       build(f);
+      if (APP) { startApp(); return; }
       if (!self.crossOriginIsolated) {
         report('이 브라우저는 게임 실행에 필요한 기능(교차 출처 격리)을 막고 있습니다 — Chrome에서 열어 주세요');
         return;
@@ -625,6 +650,25 @@
       }, { capture: true, passive: false });
     }
 
+    // app: the game already runs natively; here only buttons, the touch screen, and the save lamp
+    function startApp() {
+      bindPointers();
+      playing = true;
+      $('#fadein').classList.add('off');
+      window.appLamp = (state, text) => lamp(state, text);
+      // presses on the lower screen go to the app in DS pixels (0..255, 0..191)
+      const at = (e) => {
+        const r = $('#screenbox').getBoundingClientRect();
+        const x = Math.floor((e.clientX - r.left) / r.width * 256), y = Math.floor((e.clientY - r.top) / r.height * 384) - 192;
+        if (x < 0 || x > 255 || y < 0 || y > 191) { PokeApp.release(); return; }
+        PokeApp.touch(x, y);
+      };
+      let down = false;
+      document.addEventListener('pointerdown', (e) => { if (e.target.id !== 'screenbox') return; down = true; e.preventDefault(); at(e); });
+      document.addEventListener('pointermove', (e) => { if (down) at(e); });
+      for (const ev of ['pointerup', 'pointercancel']) document.addEventListener(ev, () => { if (down) { down = false; PokeApp.release(); } });
+      appScreens();
+    }
     async function startNds() {
       ndsTouchFix();
       const srv = PREVIEW ? null : await serverSave();
@@ -722,6 +766,7 @@
     addEventListener('pageshow', () => sleep(document.hidden));
 
     async function goHome() {
+      if (APP) { PokeApp.home(); return; }
       if (isNds) { try { const e = EJ(); const d = e && e.gameManager.getSaveFile(); if (d && d.length && !(sent && sent.length === d.length && sent.every((b, i) => b === d[i]))) await uploadNds(d); } catch (e) {} }
       else if (M) { try { const d = M.getSave(); if (d && d.length) await upload(); } catch (e) {} }
       location.href = './';
@@ -729,6 +774,7 @@
     // ---------- bug report: picture of the screen + a short note (+ the current save) to the server ----------
     let bugPng = null;
     async function capture() {
+      if (APP) { const b = PokeApp.capture(); return b ? Uint8Array.from(atob(b), (c) => c.charCodeAt(0)) : null; }
       if (isNds) {   // the core's own screenshot is black with the GPU renderer — copy the drawn canvas right after a frame instead
         const e = EJ();
         if (!e) return null;
@@ -742,6 +788,7 @@
       return M.FS.readFile(`${M.filePaths().screenshotsPath}/${name}`);
     }
     function currentSave() {
+      if (APP) { const b = PokeApp.save(); return b ? Uint8Array.from(atob(b), (c) => c.charCodeAt(0)) : null; }
       try { if (isNds) { const e = EJ(); return e && e.gameManager.getSaveFile(); } return M && M.getSave(); } catch (e) { return null; }
     }
     const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
@@ -775,12 +822,12 @@
     $('#bugCancel').addEventListener('click', closeBug);
     $('#bugSend').addEventListener('click', sendBug);
     $('#home').addEventListener('click', goHome);
-    $('#speed').addEventListener('click', () => (M || EJ()) && nextSpeed());
+    $('#speed').addEventListener('click', () => (APP || M || EJ()) && nextSpeed());
     // the same two on the full-height body (built later, so listen on the document)
     document.addEventListener('click', (e) => {
       const t = e.target.closest && e.target.closest('#homeKey, #speedKey');
       if (!t) return;
-      if (t.id === 'homeKey') goHome(); else if (M || EJ()) nextSpeed();
+      if (t.id === 'homeKey') goHome(); else if (APP || M || EJ()) nextSpeed();
     });
   </script>
 </body>
