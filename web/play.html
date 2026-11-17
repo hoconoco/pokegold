@@ -272,7 +272,7 @@
         html += `<div class="part" style="${box(0, 0, SW * 4, SH * 4)}"><canvas id="screen" width="${SW}" height="${SH}"></canvas></div>`;
       } else {
         // every game on the drawn device body (Gold/Silver too — 사용자 2026-11-17: 골드·실버 화면이 구식)
-        shellLayout = innerWidth > innerHeight ? 'land' : 'port';
+        shellLayout = layoutKind();
         html = shellHtml(shellLayout);
         dev.classList.add('shellui');
         document.body.classList.add('fullbody');
@@ -423,11 +423,14 @@
       return html;
     }
 
+    // DS (4·5세대) is played upright only — two stacked screens fit a portrait phone best; GB·GBA turn with the phone
+    // (사용자 2026-11-17)
+    const layoutKind = () => (!isNds && innerWidth > innerHeight) ? 'land' : 'port';
     // turning the phone: re-lay the body (the canvas moves along), otherwise just re-fit
     addEventListener('resize', () => {
       const dev = $('#dev');
       if (dev.classList.contains('shellui')) {
-        const kind = innerWidth > innerHeight ? 'land' : 'port';
+        const kind = layoutKind();
         if (kind !== shellLayout) {
           shellLayout = kind;
           dev.innerHTML = shellHtml(kind);

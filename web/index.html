@@ -232,6 +232,7 @@
 
     // the middle game's title music, looped from its start each time the game comes to the middle;
     // one element for all, so a phone that let it play once keeps letting it
+    const APP_BGM = 'firered';   // 판 선택 화면 음악(한 곡, 사용자 결정 파이어레드) — title/<이 이름>.m4a
     const bgm = new Audio();
     bgm.loop = true;
     bgm.preload = 'auto';
@@ -242,8 +243,8 @@
     addEventListener('pointerdown', () => { if (appAway) { appAway = false; music(); } }, true);
     function music() {
       if (!soundOn || document.hidden || appAway || $('#white').classList.contains('on')) { bgm.pause(); return; }
-      const id = GAMES[cur].id;
-      if (bgmId !== id) { bgmId = id; bgm.src = `title/${id}.m4a`; }
+      // one tune for the whole first screen, like an app's own music — it keeps playing across cards (사용자 2026-11-17)
+      if (!bgmId) { bgmId = APP_BGM; bgm.src = `title/${APP_BGM}.m4a`; }
       bgm.volume = 1;
       bgm.play().catch(() => {});
     }
