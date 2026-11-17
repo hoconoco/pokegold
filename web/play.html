@@ -128,6 +128,11 @@
                          background: rgba(15,17,22,.82); color: #f1f1f1; font-size: 12px; }
     html.app body.fullbody #msg { top: 72px; }
     #msg:empty { display: none; }
+    /* landscape: the screen reaches the top edge — bug key and notes go to the free bottom-left corner under the pad */
+    @media (orientation: landscape) {
+      body.fullbody #bugBtn, html.app body.fullbody #bugBtn { top: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); left: calc(env(safe-area-inset-left, 0px) + 24px); transform: none; }
+      body.fullbody #msg, html.app body.fullbody #msg { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 48px); left: calc(env(safe-area-inset-left, 0px) + 24px); transform: none; }
+    }
     #fadein { position: fixed; inset: 0; background: #fff; z-index: 9; pointer-events: none; transition: opacity 0.5s ease-out; }
     #fadein.off { opacity: 0; }
     /* the full-height body has its own game-select and speed keys */
@@ -313,8 +318,9 @@
       if (kind === 'land' && isNds) return dsHtml(kind, pad, key, speedText);
       if (kind === 'land') {
         const H = 720, W = Math.max(1300, Math.round(H * innerWidth / innerHeight));
-        let sw = Math.min(840, W - 600, Math.round(560 * SW / SH)), sh = Math.round(sw * SH / SW);
-        const sx = Math.round((W - sw) / 2), sy = 70 + Math.round((560 - sh) / 2);
+        // as big as the height allows (620 of 720) with the controls on both sides
+        let sw = Math.min(1000, W - 600, Math.round(620 * SW / SH)), sh = Math.round(sw * SH / SW);
+        const sx = Math.round((W - sw) / 2), sy = 50 + Math.round((620 - sh) / 2);
         const lx = sx / 2, rx = W - sx / 2;
         dev.style.width = W + 'px'; dev.style.height = H + 'px';
         if (!isGbc) {
@@ -339,7 +345,11 @@
       const minH = 595 + sh;
       const H = Math.max(minH, Math.round(W * innerHeight / innerWidth));
       const sy = 72 + Math.round(Math.max(0, H - minH) * 0.15);
-      const y0 = sy + sh + 84 + Math.round(Math.max(0, (H - 100) - (sy + sh + 84 + 420)) / 2);
+      // the controls grow with the height left under the screen (up to 1.25x) — easier to press on tall phones
+      const room = (H - 100) - (sy + sh + 84);
+      const k = Math.max(1, Math.min(1.25, room / 420));
+      const y0 = sy + sh + 84 + Math.round(Math.max(0, room - 420 * k) / 2);
+      const z = (v) => Math.round(v * k);
       dev.style.width = W + 'px'; dev.style.height = H + 'px';
       if (!isGbc) {
         html += `<button class="part hot shoulder" data-k="L" aria-label="L" style="${box(24, sy - 72, 230, 70)}border-radius:40px 14px 0 0">L</button>`;
@@ -351,14 +361,15 @@
       html += `<div class="part bezel" style="${box(sx - 14, sy - 20, sw + 28, sh + 48)}"></div>`;
       html += `<div class="part" id="screenbox" style="${box(sx, sy, sw, sh)}"></div>`;
       html += `<div id="led" class="part" style="${box(sx + 4, sy + sh + 9, 12, 12)}"></div>`;
-      html += pad(176, y0 + 150, 74);
-      html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(426, y0 + 168, 112, 112)}">B</button>`;
-      html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(568, y0 + 98, 112, 112)}">A</button>`;
-      html += key('hot small" data-k="Select" aria-label="SELECT', 434, y0 - 24, 'SELECT');   // over B
-      html += key('hot small" data-k="Start" aria-label="START', 576, y0 - 24, 'START');      // over A
+      const fs = z(112), bx = 553 - z(71) - fs / 2, ax = 553 + z(71) - fs / 2;   // B and A around x 553
+      html += pad(Math.max(z(111) + 12, 176), y0 + z(150), z(74));
+      html += `<button class="part hot face" data-k="B" aria-label="B" style="${box(bx, y0 + z(168), fs, fs)}font-size:${z(40)}px">B</button>`;
+      html += `<button class="part hot face" data-k="A" aria-label="A" style="${box(ax, y0 + z(98), fs, fs)}font-size:${z(40)}px">A</button>`;
+      html += key('hot small" data-k="Select" aria-label="SELECT', bx + fs / 2 - 48, y0 - 24, 'SELECT');   // over B
+      html += key('hot small" data-k="Start" aria-label="START', ax + fs / 2 - 48, y0 - 24, 'START');      // over A
       let dots = '';
       for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) dots += `<i style="left:${c * 22}px;top:${r * 22}px"></i>`;
-      html += `<div class="part grille" style="${box(536, y0 + 320, 130, 86)}">${dots}</div>`;
+      html += `<div class="part grille" style="${box(536, y0 + z(320), 130, 86)}">${dots}</div>`;
       return html;
     }
 
