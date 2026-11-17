@@ -20,6 +20,13 @@ O=(-i "$SSAFY_SCHEDULE_KEY" -o BatchMode=yes)
 SITE=pokemon.3-35-233-70.sslip.io
 PORT=8789
 
+# screen layout check first (tools/ui_check.py: bug key·notes·dialog·buttons not overlapping or off screen,
+# GB·GBA·DS × web·app × upright·sideways) — a FAIL stops the deploy; UI_CHECK=0 skips it (ROM-only deploys)
+if [ "${UI_CHECK:-1}" != 0 ] && [ "${1:-}" != --setup ]; then
+  python -X utf8 tools/ui_check.py --out .build/ui_check > /dev/null 2>&1 || { echo "ui_check FAIL — .build/ui_check/ui_check.txt"; grep FAIL .build/ui_check/ui_check.txt; exit 1; }
+  echo "ui_check ok"
+fi
+
 B=../pokefirered/.build/common15
 # "local file|path under /srv/pokegold/web"
 PAIRS=("web/index.html|index.html" "web/play.html|play.html" "web/favicon.svg|favicon.svg"

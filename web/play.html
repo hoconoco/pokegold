@@ -452,6 +452,10 @@
       const top = PREVIEW || dev.classList.contains('shellui') ? 0 : 44;   // room for the corner buttons
       const s = Math.min(innerWidth / w, (innerHeight - top) / h);
       dev.style.transform = `translate(-50%, calc(-50% + ${top / 2}px)) scale(${s})`;
+      // GBA upright: the L·R keys sit under the bug key — notes go in the free band right under the screen instead
+      const sb = $('#screenbox');
+      $('#msg').style.top = shellLayout === 'port' && sb && dev.querySelector('[data-k="L"]') && !isNds
+        ? `${Math.round(sb.getBoundingClientRect().bottom + 10)}px` : '';
       if (APP) appScreens();
     }
     // app: cut the screen box out of the body and bezel (so the native picture shows through) and send its place
