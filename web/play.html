@@ -545,7 +545,7 @@
     // what went wrong is shown on the screen (preview: in the first screen's card), never a silent blank
     function report(text) {
       if (PREVIEW) { try { parent.postMessage({ previewStatus: id, text }, location.origin); } catch (e) {} }
-      else $('#msg').textContent = text;
+      else { $('#msg').textContent = text; if (text && !/불러오는 중/.test(text)) $('#fadein').classList.add('off'); }   // 오류 문구가 흰 덮개에 가리지 않게
     }
     // EmulatorJS asks for a screen wake lock; a denied request is not a game error
     const benign = (t) => /wake lock/i.test(String(t));

@@ -243,7 +243,7 @@
     function start() {
       close();
       $('#white').classList.add('on');
-      if (window.PokeApp && /^(diamond|pearl|platinum|heartgold|soulsilver)$/.test(GAMES[cur].id)) {
+      if (window.PokeApp) {   // 앱: DS 판은 앱 화면, GB·GBA 판은 크롬으로 열리고 이 화면은 뒤에 남는다
         appAway = true;
         setTimeout(() => $('#white').classList.remove('on'), 2500);
       }
