@@ -128,7 +128,7 @@
     /* the full-height body has its own game-select and speed keys */
     body.fullbody #corner { display: none; }
     /* bug report: small button at the top centre (every layout) and a dialog with the captured picture */
-    #bugBtn { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 30; font: 600 12px/1 system-ui, sans-serif;
+    #bugBtn { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 10000; font: 600 12px/1 system-ui, sans-serif;
               padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(20,20,24,.55); color: #fff; }
     #bugDlg { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.6); }
     #bugDlg.open { display: flex; }
@@ -142,6 +142,8 @@
     #bugCancel { background: #3a3d44; color: #eee; }
     #bugNote { font-size: 12px; color: #aaa; min-height: 16px; }
     body.preview #bugBtn { display: none; }
+    /* EmulatorJS's own notices (e.g. 'Fast-Forward.') — the speed key already shows the speed */
+    #ejs .ejs_message { display: none !important; }
     /* app mode (Android app draws the DS screens under this page): no page background, the screen box is a hole */
     html.app, html.app body { background: transparent; }
     html.app #msg { pointer-events: none; }
