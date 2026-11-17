@@ -146,6 +146,10 @@ class EJS_GameManager {
             "video_vsync = true\n" +
             "video_smooth = false\n" +
             "fastforward_ratio = 3.0\n" +
+            // pokegold: no notices drawn into the game picture ("Fast-Forward." etc.), the player shows the speed itself
+            "video_font_enable = false\n" +
+            "notification_show_fast_forward = false\n" +
+            "menu_enable_widgets = false\n" +
             "slowmotion_ratio = 3.0\n" +
             (this.EJS.rewindEnabled ? "rewind_enable = true\n" : "") +
             (this.EJS.rewindEnabled ? "rewind_granularity = 6\n" : "") +

@@ -169,7 +169,7 @@
       try {
         const v = await (await fetch('app/version.json', { cache: 'no-store' })).json();
         if (!(v.code > A.appVersion())) return;
-        document.getElementById('updText').textContent = `새 버전이 나왔어요 (v${v.code})`;
+        document.getElementById('updText').textContent = `새 버전이 나왔어요 (v${v.name || v.code})`;
         document.getElementById('updNote').textContent = v.note || '';
         document.getElementById('upd').hidden = false;
         document.getElementById('updGet').onclick = () => { A.update(); document.getElementById('updText').textContent = '받는 중…'; document.getElementById('updNote').textContent = '다 받으면 설치 화면이 떠요'; };

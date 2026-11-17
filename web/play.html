@@ -128,7 +128,8 @@
     /* the full-height body has its own game-select and speed keys */
     body.fullbody #corner { display: none; }
     /* bug report: small button at the top centre (every layout) and a dialog with the captured picture */
-    #bugBtn { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 10000; font: 600 12px/1 system-ui, sans-serif;
+    /* below the phone's camera hole: the app hides the system bars, so the page reaches the top edge */
+    #bugBtn { position: fixed; top: max(6px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 10000; font: 600 12px/1 system-ui, sans-serif;
               padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(20,20,24,.55); color: #fff; }
     #bugDlg { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.6); }
     #bugDlg.open { display: flex; }
@@ -798,6 +799,8 @@
     // ---------- bug report: picture of the screen + a short note (+ the current save) to the server ----------
     let bugPng = null;
     async function capture() {
+      // Android app: the whole screen (device picture, buttons and the game), so layout problems can be reported too
+      if (window.PokeApp && PokeApp.captureScreen) { try { const b = PokeApp.captureScreen(); if (b) return Uint8Array.from(atob(b), (c) => c.charCodeAt(0)); } catch (_) {} }
       if (APP) { const b = PokeApp.capture(); return b ? Uint8Array.from(atob(b), (c) => c.charCodeAt(0)) : null; }
       if (EJSMODE) {   // the core's own screenshot is black with the GPU renderer — copy the drawn canvas right after a frame instead
         const e = EJ();
@@ -844,6 +847,8 @@
       } catch (e) { $('#bugNote').textContent = '보내지 못했어요. 잠시 뒤 다시 눌러 주세요'; }
     }
     $('#bugBtn').addEventListener('click', openBug);
+    // Android app WebView may not report the camera hole as a safe area: keep the button under the status-bar band there
+    if (window.PokeApp && parseFloat(getComputedStyle($('#bugBtn')).top) < 34) $('#bugBtn').style.top = '38px';
     $('#bugCancel').addEventListener('click', closeBug);
     $('#bugSend').addEventListener('click', sendBug);
     $('#home').addEventListener('click', goHome);
