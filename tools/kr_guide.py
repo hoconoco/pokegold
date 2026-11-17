@@ -5,7 +5,9 @@
   FadeToMenu/CloseSubmenu like the trainer card item) and the wild code (wMapGroup/wMapNumber, wTimeOfDay).
 - Texts are Korean, encoded with tools/kr_charset.py (the ROM's own text encoding); Pokémon names are
   copied from the ROM's name table, so they are exactly the game's names.
-- 이 맵 출현: lists made from the (already patched) wild tables of this ROM — grass per time of day, water.
+- 이 맵 출현: lists made from the (already patched) wild tables of this ROM — grass per time of day, water;
+  each name has a blank tile before it where the screen puts '■' once that species is caught (like the Emerald
+  guide's mark — user 2026-11-17: a count like 3/5 does not say which ones).
 - 전설과 환상: the legends met in map scripts (mod statics, 칠색조, 루기아) with their place and '끝' once their
   object's event flag is set (caught or defeated), and the three roaming beasts' current place (their map ->
   the place name of this ROM's landmark table), '불탄 탑 사건 뒤' before EVENT_RELEASED_THE_BEASTS.
@@ -179,25 +181,28 @@ def wild_tables(d, start):
     return grass, water
 
 
-def name_list(species, names, enc):
-    """distinct species in order -> (lines of at most LINE_TILES tiles joined by NEXT, number of lines)"""
+def marked_list(species, names, enc):
+    """distinct species, each after a blank tile for its caught mark -> (string, number of lines, species in order);
+    no species -> '없음' (no blanks, no species bytes)
+
+    The species bytes go right after the string's end mark: guide.asm DrawMarks walks the string as PlaceString
+    drew it and, at the n-th blank ($7F, only used before names here), puts MARK_TILE when the n-th species is
+    caught (8x16 text of a line at tile row r covers rows r-1 and r; the mark goes on row r). Positions are not
+    stored — the guide bank has no room for them."""
     seen, lines, cur, w = [], [], bytearray(), 0
     for sp in species:
         if sp in seen or sp == 0:
             continue
         seen.append(sp)
         raw, width = names[sp]
-        need = width + (1 if w else 0)
-        if w and w + need > LINE_TILES:
+        if w and w + 1 + width > LINE_TILES:
             lines.append(bytes(cur)); cur, w = bytearray(), 0
-            need = width
-        if w:
-            cur.append(0x7F)
+        cur.append(0x7F)
         cur += raw
-        w += need
+        w += 1 + width
     if cur:
         lines.append(bytes(cur))
-    return (bytes([NEXT]).join(lines), len(lines)) if lines else (enc("없음"), 1)
+    return (bytes([NEXT]).join(lines), len(lines), seen) if lines else (enc("없음"), 1, [])
 
 
 def db(b):
@@ -329,19 +334,21 @@ def build_data(f, enc):
     grass_of = {(g, n): (m, dy, nt) for g, n, m, dy, nt in f.grass}
     strings, label_of = [], {}
 
-    def label(blob):
-        if blob not in label_of:
-            label_of[blob] = f"GuideStr{len(label_of)}"
-            strings.append(f"{label_of[blob]}:\n{db(blob + bytes([0x50]))}")
-        return label_of[blob]
+    def label(blob, tail=b""):
+        """string (+ bytes after its end mark: the species of a marked list)"""
+        key = blob + bytes([0x50]) + tail
+        if key not in label_of:
+            label_of[key] = f"GuideStr{len(label_of)}"
+            strings.append(f"{label_of[key]}:\n{db(key)}")
+        return label_of[key]
     lines, most = ["WildIndex:"], [0, 0]
     for g, n in maps:
         m, dy, nt = grass_of.get((g, n), ([], [], []))
         ptrs = []
         for k, sp in enumerate((m, dy, nt, water_of.get((g, n), []))):
-            blob, count = name_list(sp, names, enc)
+            blob, count, species = marked_list(sp, names, enc)
             most[k == 3] = max(most[k == 3], count)
-            ptrs.append(label(blob))
+            ptrs.append(label(blob, bytes(species)))
         ptrs.append(label(f.place[f.landmark_of[(g, n)]]))
         lines.append(f"\tdb ${g:02X}, ${n:02X}\n\tdw {', '.join(ptrs)}")
     assert most[0] <= MAX_GRASS_LINES and most[1] <= MAX_WATER_LINES, f"wild lists too long for the page: {most}"

@@ -10,7 +10,7 @@
 ;   line break inside a string = $59 (kr_guide.py NEXT).
 ; - Pages with more than one screen (전설과 환상, 도감 안내): A / down / right = next screen, up / left = back,
 ;   B = back to the list (A on the last screen too).
-; - Scratch RAM while the guide is open: wStringBuffer1 (5 bytes).
+; - Scratch RAM while the guide is open: wStringBuffer1 (9 bytes).
 
 INCLUDE "kr_syms.inc"
 
@@ -32,12 +32,18 @@ DEF CURSOR_COL  EQU 2
 DEF LIST_LINES  EQU 6       ; rows 5, 7, ... 15
 DEF DONE_COL    EQU 16
 DEF ROAM_PLACE_COL EQU 6
+DEF WILD_ROW    EQU 7       ; 이 맵 출현: grass names (3 lines: 7, 9, 11), water names
+DEF WATER_ROW   EQU 15
+DEF MARK_TILE   EQU $60     ; '■' before a caught species (the Emerald guide marks them with a red square)
+DEF NEXT_CHAR   EQU $59     ; kr_guide.py NEXT
 DEF NUM_SPECIES EQU 251
 
 DEF wGuideSkip    EQU wStringBuffer1
 DEF wGuideSpecies EQU wStringBuffer1 + 1
 DEF wGuideLines   EQU wStringBuffer1 + 2
 DEF wGuideEntry   EQU wStringBuffer1 + 3   ; 2 bytes
+DEF wMarkSpecies  EQU wStringBuffer1 + 5   ; 2 bytes: DrawMarks — next species byte
+DEF wMarkLine     EQU wStringBuffer1 + 7   ; 2 bytes: DrawMarks — first tile of the current line
 
 SECTION "KRGuideBank4", ROMX[BANK4_FREE], BANK[4]
 
@@ -280,14 +286,17 @@ PageWild:
 	ld de, TxtNoWild
 	call PlaceString
 	jr .done
-.found                                 ; hl -> dw morn, day, nite, water, place
+.found                                 ; hl -> dw morn, day, nite, water, place, then the mark tables of morn .. water
+	ld a, l
+	ld [wGuideEntry], a
+	ld a, h
+	ld [wGuideEntry + 1], a
 	ld a, [wTimeOfDay]
 	cp 3
 	jr c, .time
 	ld a, 2
 .time
-	push hl
-	push af
+	ld [wGuideSpecies], a              ; time of day 0..2 while this page is drawn
 	add a
 	ld e, a
 	ld d, 0
@@ -298,32 +307,121 @@ PageWild:
 	ld e, a
 	hlcoord 2, 5
 	call PlaceString
-	pop af
-	pop hl
-	push hl
+	ld a, [wGuideSpecies]
 	add a
-	ld e, a
-	ld d, 0
-	add hl, de
-	ld a, [hli]
-	ld d, [hl]
-	ld e, a
-	hlcoord 2, 7
+	call WildPtr
+	hlcoord 2, WILD_ROW
 	call PlaceString
 	hlcoord 2, 13
 	ld de, TxtWater
 	call PlaceString
-	pop hl
-	ld de, 6
+	ld a, 6
+	call WildPtr
+	hlcoord 2, WATER_ROW
+	call PlaceString
+	ld a, [wGuideSpecies]               ; caught marks (each name has a blank before it, kr_guide.py marked_list)
+	add a
+	call WildPtr
+	hlcoord 2, WILD_ROW
+	call DrawMarks
+	ld a, 6
+	call WildPtr
+	hlcoord 2, WATER_ROW
+	call DrawMarks
+.done
+	call WaitBGMap
+	jp WaitAB
+
+WildPtr:                               ; a = byte offset into the found WildIndex pointers -> de = that pointer
+	ld e, a
+	ld d, 0
+	ld a, [wGuideEntry]
+	ld l, a
+	ld a, [wGuideEntry + 1]
+	ld h, a
 	add hl, de
 	ld a, [hli]
 	ld d, [hl]
 	ld e, a
-	hlcoord 2, 15
-	call PlaceString
-.done
-	call WaitBGMap
-	jp WaitAB
+	ret
+
+; de = a marked name list (kr_guide.py marked_list), hl = the tile PlaceString started it at: walks the string the
+; way PlaceString drew it (1 tile per character, a 2-byte character starts with $01..$0B, NEXT = 2 rows down)
+; and puts MARK_TILE on the n-th blank when the n-th species byte after the string's end is caught
+DrawMarks:
+	ld a, l
+	ld [wMarkLine], a
+	ld a, h
+	ld [wMarkLine + 1], a
+	push de
+	ld h, d
+	ld l, e
+.end
+	ld a, [hli]
+	cp $50
+	jr z, .end_found
+	dec a
+	cp $0B
+	jr nc, .end
+	inc hl
+	jr .end
+.end_found
+	ld a, l
+	ld [wMarkSpecies], a
+	ld a, h
+	ld [wMarkSpecies + 1], a
+	pop de
+	ld a, [wMarkLine]
+	ld l, a
+	ld a, [wMarkLine + 1]
+	ld h, a
+.loop
+	ld a, [de]
+	inc de
+	cp $50
+	ret z
+	cp NEXT_CHAR
+	jr nz, .char
+	ld a, [wMarkLine]
+	add SCREEN_W * 2
+	ld [wMarkLine], a
+	ld l, a
+	ld a, [wMarkLine + 1]
+	adc 0
+	ld [wMarkLine + 1], a
+	ld h, a
+	jr .loop
+.char
+	cp $7F
+	jr z, .blank
+	dec a
+	cp $0B
+	jr nc, .one
+	inc de                             ; second byte of a 2-byte character
+.one
+	inc hl
+	jr .loop
+.blank
+	push de
+	push hl
+	ld hl, wMarkSpecies
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	ld a, [hli]
+	ld b, a
+	ld a, l
+	ld [wMarkSpecies], a
+	ld a, h
+	ld [wMarkSpecies + 1], a
+	ld a, b
+	dec a
+	call CheckCaught                   ; nz when caught
+	pop hl
+	pop de
+	jr z, .one
+	ld [hl], MARK_TILE
+	jr .one
 
 FindWild:                              ; b = map group, c = map number -> hl = its 5 pointers (nc) or carry
 	ld hl, WildIndex
