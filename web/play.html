@@ -748,6 +748,15 @@
           uploadNds(d);
         }, 2000);
         bindInput();
+        // frames per second actually run (EmulatorJS frame counter, every 2 s) — sent with a bug report
+        let fpsFrame = 0, fpsAt = performance.now();
+        setInterval(() => {
+          try {
+            const f = gm.functions.getFrameNum(), t = performance.now();
+            window.fpsNow = Math.round((f - fpsFrame) * 1000 / (t - fpsAt));
+            fpsFrame = f; fpsAt = t;
+          } catch (_) {}
+        }, 2000);
         playing = true;
         sleep(document.hidden);
         $('#fadein').classList.add('off');
@@ -859,7 +868,7 @@
       $('#bugNote').textContent = '보내는 중…';
       const sv = currentSave();
       const body = { game: id, rom: G.rom, text, time: new Date().toISOString(), ua: navigator.userAgent,
-                     diag: APP && PokeApp.diag ? PokeApp.diag() + ` css=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} layout=${shellLayout} dev=${$("#dev").style.width}x${$("#dev").style.height} ${$("#dev").style.transform}` : null,
+                     diag: (APP && PokeApp.diag ? PokeApp.diag() : '') + ` fps=${window.fpsNow ?? '-'} speed=x${SPEEDS[speedIdx]} ejs=${EJSMODE} css=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} layout=${shellLayout} dev=${$("#dev").style.width}x${$("#dev").style.height} ${$("#dev").style.transform}`,
                      png: bugPng ? b64(bugPng) : null, save: sv && sv.length ? b64(sv) : null };
       try {
         const r = await fetch('api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
