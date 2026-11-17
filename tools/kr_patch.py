@@ -451,6 +451,24 @@ def patch_route29_starters(r):
         r.put(f"route29: slot 2.{slot}", o, r.d[o:o + 1], [sp])
 
 
+# Kanto Route 1 grass (reachable only after the Elite Four): the Kanto starters on repeated slots — the "other region's
+# starters after the ending" of the 3rd/4th-generation mods (user request 2026-11-17). Data only: the even-odds bank has no
+# room for an after-the-ending check, and Kanto itself is after the ending.
+BULBASAUR, CHARMANDER, SQUIRTLE = 0x01, 0x04, 0x07
+
+
+def patch_route1_kanto_starters(r):
+    off = r.find("route1: grass slots",
+                 "02 10 02 13 03 A1 03 10 06 A2 04 10 04 10 02 10 02 13 03 A1 03 10 06 A2 04 10 04 10 02 A3 02 13 03 13 03 A3 06 13 04 A3 04 A3")
+    for t in (0, 14):   # morn/day: [Pidgey, Rattata, Sentret, Pidgey*, Furret, Pidgey*, Pidgey*]
+        for slot, sp in ((3, BULBASAUR), (5, CHARMANDER), (6, SQUIRTLE)):
+            o = off + t + 2 * slot + 1
+            r.put(f"route1: slot {t // 14}.{slot}", o, r.d[o:o + 1], [sp])
+    for slot, sp in ((2, BULBASAUR), (3, CHARMANDER), (6, SQUIRTLE)):   # nite: [Hoothoot, Rattata, Rattata*, Hoothoot*, Rattata, Hoothoot, Hoothoot*]
+        o = off + 28 + 2 * slot + 1
+        r.put(f"route1: slot 2.{slot}", o, r.d[o:o + 1], [sp])
+
+
 def patch_even_odds(r):
     """ChooseWildEncounter: the probability bracket loop is replaced by an even species pick
     (same logic as the English engine/overworld/wildmons.asm). Bank $0A has only 56 free bytes,
@@ -628,6 +646,7 @@ def main():
     patch_elm_trade_evo(r)
     patch_evo_mart(r)
     patch_route29_starters(r)
+    patch_route1_kanto_starters(r)
     patch_guide(r, wild_start, en_rom, en_sym, args.repo)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
