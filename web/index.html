@@ -104,6 +104,9 @@
     @keyframes busyspin { 0% { transform: translateX(-100%); } 100% { transform: translateX(290%); } }
     #busy button { margin-top: 16px; font: 700 15px system-ui, sans-serif; padding: 10px 28px; border-radius: 999px; border: 0; background: #f2c14e; color: #1a1405; }
     #busy button[hidden], #busy .bar[hidden] { display: none; }
+    #busy .btns { display: flex; gap: 10px; justify-content: center; }
+    #busy button.ghost { background: #2c313b; color: #e6e8ec; }
+    #busy .warn { color: #f2c14e; }
   </style>
 </head>
 <body>
@@ -119,7 +122,7 @@
   </div>
   <div id="white"></div>
   <div id="busy" hidden><div class="card"><img id="busyImg" alt=""><div class="b1" id="busyT"></div><div class="b2" id="busyS"></div>
-    <div class="bar spin" id="busyBar"><i></i></div><button id="busyOk" type="button" hidden>확인</button></div></div>
+    <div class="bar spin" id="busyBar"><i></i></div><div class="btns"><button id="busyNo" class="ghost" type="button" hidden>취소</button><button id="busyOk" type="button" hidden>확인</button></div></div></div>
   <div id="upd" hidden><div class="txt"><div class="t1" id="updText"></div><div class="t2" id="updNote"></div></div><button id="updGet" type="button">받기</button><button class="x" id="updX" type="button" aria-label="닫기">✕</button></div>
   <script>
     // Android app: it calls these while it gets a DS game ready (ratio 0..1, or -1 = not known yet) and when something went wrong
@@ -133,7 +136,21 @@
       bar.hidden = false; bar.classList.toggle('spin', !(ratio >= 0));
       bar.firstElementChild.style.width = ratio >= 0 ? `${Math.round(ratio * 100)}%` : '';
       document.getElementById('busyOk').hidden = true;
+      document.getElementById('busyNo').hidden = true;
       b.hidden = false;
+    };
+    // before a big first download on mobile data: ask (the app goes on with PokeApp.romOk(game) or stops)
+    window.appConfirm = (game, title, text, okLabel) => {
+      window.appBusy(game, title, '', -1);
+      const sEl = document.getElementById('busyS');
+      sEl.innerHTML = '';
+      text.split('
+').forEach((line, i) => { const d = document.createElement('div'); d.textContent = line; if (i === 0) d.className = 'warn'; sEl.appendChild(d); });
+      document.getElementById('busyBar').hidden = true;
+      const ok = document.getElementById('busyOk'), no = document.getElementById('busyNo');
+      ok.textContent = okLabel; ok.hidden = false; no.hidden = false;
+      ok.onclick = () => { ok.textContent = '확인'; PokeApp.romOk(game); };
+      no.onclick = () => { ok.textContent = '확인'; document.getElementById('busy').hidden = true; document.getElementById('white').classList.remove('on'); };
     };
     window.appBusyEnd = () => { document.getElementById('busy').hidden = true; };
     window.appError = (title, text) => {
@@ -141,7 +158,8 @@
       document.getElementById('busyS').textContent = text;
       document.getElementById('busyBar').hidden = true;
       const ok = document.getElementById('busyOk');
-      ok.hidden = false; ok.onclick = () => { document.getElementById('busy').hidden = true; document.getElementById('white').classList.remove('on'); };
+      document.getElementById('busyNo').hidden = true;
+      ok.textContent = '확인'; ok.hidden = false; ok.onclick = () => { document.getElementById('busy').hidden = true; document.getElementById('white').classList.remove('on'); };
       document.getElementById('busy').hidden = false;
     };
     // Android app: compare the installed app with app/version.json ({code, note}) and offer the new one

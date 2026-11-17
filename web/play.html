@@ -482,9 +482,9 @@
       try {
         const r = await fetch(SAVE_URL, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: data.slice() });
         if (r.ok) sent = data.slice();
-        lamp(r.ok ? 'ok' : 'fail', r.ok ? '' : '서버 저장 실패 — 이 기기에만 저장됨');
+        lamp(r.ok ? 'ok' : 'fail', r.ok ? '' : '서버 저장에 실패해서 이 기기에만 저장했어요');
       } catch (e) {
-        lamp('fail', '서버에 연결 안 됨 — 이 기기에만 저장됨');
+        lamp('fail', '서버에 연결되지 않아 이 기기에만 저장했어요');
       }
       M.FSSync();
     }
@@ -556,7 +556,7 @@
       build(f);
       if (APP) { startApp(); return; }
       if (!self.crossOriginIsolated) {
-        report('이 브라우저는 게임 실행에 필요한 기능(교차 출처 격리)을 막고 있습니다 — Chrome에서 열어 주세요');
+        report('이 브라우저에서는 게임을 실행할 수 없어요. Chrome에서 열어 주세요');
         return;
       }
       report('불러오는 중…');
@@ -592,7 +592,7 @@
         lamp('ok', '새 게임');
         setTimeout(() => lamp('ok', ''), 3000);
       } else {
-        lamp('fail', '서버에 연결 안 됨 — 이 기기의 세이브로');
+        lamp('fail', '서버에 연결되지 않아 이 기기의 세이브로 시작해요');
       }
       if (!M.loadGame(romPath)) { $('#msg').textContent = 'ROM을 불러오지 못했습니다'; return; }
       bindInput();
@@ -703,7 +703,7 @@
         if (srv) {
           try { gm.FS.writeFile(path, srv); gm.loadSaveFiles(); lamp('ok'); } catch (_) { lamp('fail', '세이브를 넣지 못했습니다'); }
         } else if (srv === null) { lamp('ok', '새 게임'); setTimeout(() => lamp('ok', ''), 3000); }
-        else lamp('fail', '서버에 연결 안 됨 — 이 기기의 세이브로');
+        else lamp('fail', '서버에 연결되지 않아 이 기기의 세이브로 시작해요');
         sent = srv || null;
         // the game writes save RAM only when saving in game; poll it and send it when it changed
         setInterval(() => {
@@ -827,7 +827,7 @@
         $('#bugText').value = '';
         $('#bugNote').textContent = '보냈습니다. 고맙습니다!';
         setTimeout(closeBug, 900);
-      } catch (e) { $('#bugNote').textContent = '보내지 못했습니다 — 잠시 뒤 다시 눌러 주세요'; }
+      } catch (e) { $('#bugNote').textContent = '보내지 못했어요. 잠시 뒤 다시 눌러 주세요'; }
     }
     $('#bugBtn').addEventListener('click', openBug);
     $('#bugCancel').addEventListener('click', closeBug);
