@@ -123,6 +123,11 @@
       position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); transform: translateX(-50%);
       font-size: 12px; color: rgba(232,230,225,0.55); z-index: 5; white-space: nowrap;
     }
+    /* on the full-height body (phone) the bottom has the game-select and speed keys: show notes at the top, under the bug key */
+    body.fullbody #msg { bottom: auto; top: calc(max(6px, env(safe-area-inset-top, 0px)) + 34px); z-index: 10000; padding: 5px 12px; border-radius: 999px;
+                         background: rgba(15,17,22,.82); color: #f1f1f1; font-size: 12px; }
+    html.app body.fullbody #msg { top: 72px; }
+    #msg:empty { display: none; }
     #fadein { position: fixed; inset: 0; background: #fff; z-index: 9; pointer-events: none; transition: opacity 0.5s ease-out; }
     #fadein.off { opacity: 0; }
     /* the full-height body has its own game-select and speed keys */
@@ -391,8 +396,11 @@
         html += key('small" id="speedKey" aria-label="게임 속도', rx + 22, 520, speedText, 'speedLabel');
         return html;
       }
-      const W = 720, sw = 480, sh = 720, sx = Math.round((W - sw) / 2);
+      const W = 720;
       const H = Math.max(1400, Math.round(W * innerHeight / innerWidth));
+      // the screen as big as the height left for the buttons allows (top 72, gaps and the button block 430, bottom keys 100)
+      // — 사용자 신고(2026-11-17): DS 화면이 생각보다 작음
+      const sh = Math.max(720, Math.min(990, H - 662)), sw = Math.round(sh * 2 / 3), sx = Math.round((W - sw) / 2);
       const sy = 72;
       const y0 = sy + sh + 60 + Math.round(Math.max(0, (H - 100) - (sy + sh + 60 + 430)) / 2);
       dev.style.width = W + 'px'; dev.style.height = H + 'px';

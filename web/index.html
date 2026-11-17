@@ -132,7 +132,11 @@
       img.style.display = game ? '' : 'none';
       if (game) { img.onerror = () => { img.style.display = 'none'; }; img.src = `title/${game}.png`; }
       document.getElementById('busyT').textContent = title;
-      document.getElementById('busyS').textContent = text;
+      // lines: the app separates them with a line break (older apps: a comma before '처음 한 번만 받아요')
+      const sEl = document.getElementById('busyS');
+      sEl.innerHTML = '';
+      String(text).replace(', 처음 한 번만 받아요', String.fromCharCode(10) + '처음 한 번만 받아요').split(String.fromCharCode(10))
+        .forEach((line) => { const d = document.createElement('div'); d.textContent = line; sEl.appendChild(d); });
       const bar = document.getElementById('busyBar');
       bar.hidden = false; bar.classList.toggle('spin', !(ratio >= 0));
       bar.firstElementChild.style.width = ratio >= 0 ? `${Math.round(ratio * 100)}%` : '';
