@@ -144,8 +144,7 @@
       window.appBusy(game, title, '', -1);
       const sEl = document.getElementById('busyS');
       sEl.innerHTML = '';
-      text.split('
-').forEach((line, i) => { const d = document.createElement('div'); d.textContent = line; if (i === 0) d.className = 'warn'; sEl.appendChild(d); });
+      text.split(String.fromCharCode(10)).forEach((line, i) => { const d = document.createElement('div'); d.textContent = line; if (i === 0) d.className = 'warn'; sEl.appendChild(d); });
       document.getElementById('busyBar').hidden = true;
       const ok = document.getElementById('busyOk'), no = document.getElementById('busyNo');
       ok.textContent = okLabel; ok.hidden = false; no.hidden = false;
