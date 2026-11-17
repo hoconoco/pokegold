@@ -79,6 +79,13 @@
     .dialog button.sel::before { content: "▶"; position: absolute; left: 0; top: 7px; font-size: 12px; }
     #white { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.4s ease-in; z-index: 9; }
     #white.on { opacity: 1; }
+    /* app: new version notice (only inside the Android app, when app/version.json is newer than the installed app) */
+    #upd { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 50; display: flex; gap: 10px; align-items: center;
+           padding: 10px 12px 10px 16px; border-radius: 14px; background: rgba(20,22,28,.92); color: #fff; font: 14px/1.35 system-ui, sans-serif;
+           box-shadow: 0 6px 20px rgba(0,0,0,.45); max-width: min(92vw, 460px); }
+    #upd[hidden] { display: none; }
+    #upd button { flex: none; font: 700 14px system-ui, sans-serif; padding: 8px 14px; border-radius: 10px; border: 0; background: #f2c14e; color: #1a1405; }
+    #upd .x { background: transparent; color: #aaa; padding: 8px 6px; }
   </style>
 </head>
 <body>
@@ -93,6 +100,22 @@
     </div>
   </div>
   <div id="white"></div>
+  <div id="upd" hidden><div id="updText"></div><button id="updGet" type="button">받기</button><button class="x" id="updX" type="button" aria-label="닫기">✕</button></div>
+  <script>
+    // Android app: compare the installed app with app/version.json ({code, note}) and offer the new one
+    (async () => {
+      const A = window.PokeApp;
+      if (!A || !A.appVersion) return;
+      try {
+        const v = await (await fetch('app/version.json', { cache: 'no-store' })).json();
+        if (!(v.code > A.appVersion())) return;
+        document.getElementById('updText').textContent = `새 앱 버전(${v.code})이 나왔습니다${v.note ? ' — ' + v.note : ''}`;
+        document.getElementById('upd').hidden = false;
+        document.getElementById('updGet').onclick = () => { A.update(); document.getElementById('updText').textContent = '받는 중… 다 받으면 설치 화면이 뜹니다'; };
+        document.getElementById('updX').onclick = () => { document.getElementById('upd').hidden = true; };
+      } catch (e) {}
+    })();
+  </script>
 
   <script>
     // release order; ar = screen aspect (Game Boy Color 10:9, Advance 3:2, DS two screens 2:3)
