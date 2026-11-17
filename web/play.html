@@ -126,12 +126,14 @@
     /* on the full-height body (phone) the bottom has the game-select and speed keys: show notes at the top, under the bug key */
     body.fullbody #msg { bottom: auto; top: calc(max(6px, env(safe-area-inset-top, 0px)) + 34px); z-index: 10000; padding: 5px 12px; border-radius: 999px;
                          background: rgba(15,17,22,.82); color: #f1f1f1; font-size: 12px; }
-    html.app body.fullbody #msg { top: 72px; }
+    /* inside the Android app (any game): the bug key under the camera hole, notes under the bug key — never on top of each other */
+    html.inapp #bugBtn { top: 38px; }
+    html.inapp #msg, html.inapp body.fullbody #msg { top: 76px; bottom: auto; }
     #msg:empty { display: none; }
     /* landscape: the screen reaches the top edge — bug key and notes go to the free bottom-left corner under the pad */
     @media (orientation: landscape) {
-      body.fullbody #bugBtn, html.app body.fullbody #bugBtn { top: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); left: calc(env(safe-area-inset-left, 0px) + 24px); transform: none; }
-      body.fullbody #msg, html.app body.fullbody #msg { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 48px); left: calc(env(safe-area-inset-left, 0px) + 24px); transform: none; }
+      body.fullbody #bugBtn, html.inapp #bugBtn { top: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); left: calc(env(safe-area-inset-left, 0px) + 24px); transform: none; }
+      body.fullbody #msg, html.inapp #msg, html.inapp body.fullbody #msg { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 48px); left: calc(env(safe-area-inset-left, 0px) + 24px); transform: none; }
     }
     #fadein { position: fixed; inset: 0; background: #fff; z-index: 9; pointer-events: none; transition: opacity 0.5s ease-out; }
     #fadein.off { opacity: 0; }
@@ -145,8 +147,10 @@
     #bugDlg { position: fixed; inset: 0; z-index: 10001; display: none; align-items: flex-start; justify-content: center; background: rgba(0,0,0,.6);
               padding-top: calc(max(6px, env(safe-area-inset-top, 0px)) + 44px); box-sizing: border-box; }
     #bugDlg.open { display: flex; }
-    #bugDlg .box { width: min(92vw, 420px); background: #1d1f24; color: #eee; border-radius: 14px; padding: 14px; font: 14px/1.4 system-ui, sans-serif; }
-    #bugDlg img { width: 100%; image-rendering: pixelated; border-radius: 6px; background: #000; }
+    #bugDlg .box { width: min(92vw, 420px); max-height: calc(100% - 16px); overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column;
+                   background: #1d1f24; color: #eee; border-radius: 14px; padding: 14px; font: 14px/1.4 system-ui, sans-serif; }
+    /* the picture (a tall full-screen capture in the app) takes only the height left for it, the note and buttons stay in view */
+    #bugDlg img { display: block; max-width: 100%; max-height: 34vh; width: auto; margin: 0 auto; object-fit: contain; image-rendering: pixelated; border-radius: 6px; background: #000; }
     #bugDlg textarea { width: 100%; box-sizing: border-box; margin: 10px 0; min-height: 70px; font: 15px/1.4 system-ui, sans-serif;
                        border-radius: 8px; border: 1px solid #555; background: #111; color: #eee; padding: 8px; }
     #bugDlg .row { display: flex; gap: 8px; justify-content: flex-end; }
@@ -241,6 +245,7 @@
     const isNds = G.rom.endsWith('.nds');
     // Android app (pokegold DS app = melonDS): it runs the game natively under this page and gives window.PokeApp
     const APP = isNds && !!window.PokeApp;
+    if (window.PokeApp) document.documentElement.classList.add('inapp');
     // EmulatorJS (no threads) for DS, and for GB·GBA where the threaded mGBA web core cannot run: no cross-origin
     // isolation (the Android app's WebView). Chrome keeps the mGBA web core.
     const EJSMODE = isNds || !self.crossOriginIsolated;
@@ -866,7 +871,6 @@
     }
     $('#bugBtn').addEventListener('click', openBug);
     // Android app WebView may not report the camera hole as a safe area: keep the button under the status-bar band there
-    if (window.PokeApp && parseFloat(getComputedStyle($('#bugBtn')).top) < 34) $('#bugBtn').style.top = '38px';
     $('#bugCancel').addEventListener('click', closeBug);
     $('#bugSend').addEventListener('click', sendBug);
     $('#home').addEventListener('click', goHome);
