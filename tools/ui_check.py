@@ -7,6 +7,8 @@ cross-origin isolation, so those run on EmulatorJS), upright and sideways, on tw
 - the bug key and the note line do not overlap each other or any button
 - the bug report dialog (with a tall full-screen capture in the app) fits the viewport and its send key is visible,
   also with the keyboard up (viewport height cut to 520)
+- app0: the app's WebView can still be 0×0 when the page first lays out (HeartGold report 2026-11-18: white screen,
+  screen box 0×0) — the page starts with innerWidth/innerHeight 0, then gets its real size and a resize
 Writes <out>/ui_check.txt (FAIL lines first) and <out>/ui_check.png (all screens). Exit code 1 if anything failed.
 
 python -X utf8 tools/ui_check.py --out .build/ui_check
@@ -35,6 +37,12 @@ def tall_png():
 
 APP_STUB = """window.PokeApp = { appVersion(){return 99}, captureScreen(){ return '%s'; }, romOk(){}, update(){},
   screens(){}, key(){}, touch(){}, release(){}, speed(){}, home(){}, capture(){return ''}, save(){return ''}, log(){}, diag(){return ''} };"""
+
+BLIND = """(() => { window.__blind = true;
+  for (const k of ['innerWidth', 'innerHeight']) {
+    const d = Object.getOwnPropertyDescriptor(window, k) || Object.getOwnPropertyDescriptor(Window.prototype, k);
+    Object.defineProperty(window, k, { configurable: true, get() { return window.__blind ? 0 : d.get.call(window); } });
+  } })();"""
 
 RECT = "e => { const r = e.getBoundingClientRect(); return r.width && r.height ? [r.left, r.top, r.right, r.bottom] : null; }"
 
@@ -100,18 +108,25 @@ def main():
         with sync_playwright() as p:
             b = p.chromium.launch()
             for game in GAMES:
-                for mode in ("web", "app"):
+                for mode in ("web", "app", "app0"):
                     for size, (w0, h0) in SIZES.items():
                         for orient in ("port", "land"):
+                            if mode == "app0" and (size, orient) != ("s23", "port"):
+                                continue
                             w, h = (w0, h0) if orient == "port" else (h0, w0)
                             name = f"{game}_{mode}_{size}_{orient}"
                             pg = b.new_page(viewport={"width": w, "height": h})
-                            if mode == "app":
+                            if mode in ("app", "app0"):
                                 pg.add_init_script(stub)
                                 if game != "diamond":
                                     pg.add_init_script("Object.defineProperty(self, 'crossOriginIsolated', {get: () => false});")
+                            if mode == "app0":
+                                pg.add_init_script(BLIND)
                             pg.goto(f"http://127.0.0.1:{a.port}/play.html?game={game}")
                             pg.wait_for_timeout(2500)
+                            if mode == "app0":
+                                pg.evaluate("() => { window.__blind = false; dispatchEvent(new Event('resize')); }")
+                                pg.wait_for_timeout(800)
                             fails = check(pg, w, h, name, out)
                             fails += check_dialog(pg, w, h)
                             pg.set_viewport_size({"width": w, "height": min(h, 520)})

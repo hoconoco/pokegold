@@ -281,6 +281,7 @@
       } else {
         // every game on the drawn device body (Gold/Silver too — 사용자 2026-11-17: 골드·실버 화면이 구식)
         shellLayout = layoutKind();
+        shellBlind = !(innerWidth > 0 && innerHeight > 0);
         html = shellHtml(shellLayout);
         dev.classList.add('shellui');
         document.body.classList.add('fullbody');
@@ -307,6 +308,10 @@
     // height allows, pad on the left, A/B and game select/speed on the right.
     // START/SELECT sit above A/B in both (under the pad the thumb kept hitting them — user decision).
     let shellLayout = null;
+    // the viewport can still be 0×0 when the page first lays out (앱 WebView — 하트골드 신고 2026-11-18: 몸체 높이가 무한대로 빠져
+    // 화면 자리 0×0, 흰 화면). Lay out for a phone held upright then and lay out again on the first real resize.
+    const vw = () => innerWidth > 0 ? innerWidth : 360, vh = () => innerHeight > 0 ? innerHeight : 780;
+    let shellBlind = false;
     function shellHtml(kind) {
       const dev = $('#dev');
       dev.style.setProperty('--c1', G.c1); dev.style.setProperty('--c2', G.c2);
@@ -325,7 +330,7 @@
       const speedText = `속도 ×${SPEEDS[speedIdx]}`;
       if (kind === 'land' && isNds) return dsHtml(kind, pad, key, speedText);
       if (kind === 'land') {
-        const H = 720, W = Math.max(1300, Math.round(H * innerWidth / innerHeight));
+        const H = 720, W = Math.max(1300, Math.round(H * vw() / vh()));
         // as big as the height allows (620 of 720) with the controls on both sides
         let sw = Math.min(1000, W - 600, Math.round(620 * SW / SH)), sh = Math.round(sw * SH / SW);
         const sx = Math.round((W - sw) / 2), sy = 50 + Math.round((620 - sh) / 2);
@@ -351,7 +356,7 @@
       if (isNds) return dsHtml(kind, pad, key, speedText);
       const W = 720, sx = 26, sw = 668, sh = Math.round(sw * SH / SW);   // GBA 445, GB 601
       const minH = 595 + sh;
-      const H = Math.max(minH, Math.round(W * innerHeight / innerWidth));
+      const H = Math.max(minH, Math.round(W * vh() / vw()));
       const sy = 72 + Math.round(Math.max(0, H - minH) * 0.15);
       // the controls grow with the height left under the screen (up to 1.25x) — easier to press on tall phones
       const room = (H - 100) - (sy + sh + 84);
@@ -390,7 +395,7 @@
       const face = (k, x, y) => `<button class="part hot face" data-k="${k}" aria-label="${k}" style="${box(x, y, 104, 104)}">${k}</button>`;
       const diamond = (cx, cy) => face('X', cx - 52, cy - 150) + face('Y', cx - 150, cy - 52) + face('A', cx + 46, cy - 52) + face('B', cx - 52, cy + 46);
       if (kind === 'land') {
-        const H = 720, W = Math.max(1300, Math.round(H * innerWidth / innerHeight));
+        const H = 720, W = Math.max(1300, Math.round(H * vw() / vh()));
         const sh = 620, sw = Math.round(sh * 2 / 3), sx = Math.round((W - sw) / 2), sy = 70;
         const lx = sx / 2, rx = W - sx / 2;
         dev.style.width = W + 'px'; dev.style.height = H + 'px';
@@ -409,7 +414,7 @@
         return html;
       }
       const W = 720;
-      const H = Math.max(1400, Math.round(W * innerHeight / innerWidth));
+      const H = Math.max(1400, Math.round(W * vh() / vw()));
       // the screen as big as the height left for the buttons allows (top 72, gaps and the button block 430, bottom keys 100)
       // — 사용자 신고(2026-11-17): DS 화면이 생각보다 작음
       const sh = Math.max(720, Math.min(990, H - 662)), sw = Math.round(sh * 2 / 3), sx = Math.round((W - sw) / 2);
@@ -439,8 +444,9 @@
       const dev = $('#dev');
       if (dev.classList.contains('shellui')) {
         const kind = layoutKind();
-        if (kind !== shellLayout) {
+        if (kind !== shellLayout || shellBlind) {
           shellLayout = kind;
+          shellBlind = !(innerWidth > 0 && innerHeight > 0);
           dev.innerHTML = shellHtml(kind);
           placeCanvas();
           if (M || APP) bindPointers();
@@ -453,7 +459,7 @@
       const dev = $('#dev');
       const w = parseFloat(dev.style.width), h = parseFloat(dev.style.height);
       const top = PREVIEW || dev.classList.contains('shellui') ? 0 : 44;   // room for the corner buttons
-      const s = Math.min(innerWidth / w, (innerHeight - top) / h);
+      const s = Math.min(vw() / w, (vh() - top) / h);
       dev.style.transform = `translate(-50%, calc(-50% + ${top / 2}px)) scale(${s})`;
       // GBA upright: the L·R keys sit under the bug key — notes go in the free band right under the screen instead
       const sb = $('#screenbox');
