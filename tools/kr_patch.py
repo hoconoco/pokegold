@@ -22,6 +22,10 @@ New routines go into the zero-filled tail of the bank that calls them.
 - sure hit: the player's moves skip the accuracy roll (opponent moves, Protect, Fly/Dig, Lock-On, Dream Eater and
   substitute drain checks unchanged) — BattleCommand_CheckHit's X Accuracy check returns 'always hit' on the player's turn.
 - guide menu: START menu '공략' (tools/kr_guide.py, Korean text with tools/kr_charset.py).
+- caught mark: the wild battle HUD already puts tile $5D (9th tile of the exp bar graphics) at hlcoord 1,1 when the species
+  is caught (DrawEnemyHUDBorder, same as English), but in the Korean HUD it is a thin 6x6 outline right above the box's
+  left border and reads as part of the frame (user 2026-11-18: cannot tell caught wild mons) — redrawn as a bold 8x8 ball
+  in black and white only (the HUD palette's middle colours are the HP bar's).
 
 Usage: python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr.gbc --out .build/kr/pokegold_kr.gbc
        python -X utf8 tools/kr_patch.py --base .build/kr/baserom_kr_silver.gbc --out .build/kr/pokesilver_kr.gbc
@@ -475,6 +479,19 @@ def patch_route1_kanto_starters(r):
 SHINY_ATK = (2, 3, 6, 7, 10, 11, 14, 15)
 
 
+# caught mark: black top, black band with a white ring button, white bottom with an outline
+CAUGHT_BALL = [0b00111100, 0b01111110, 0b11100111, 0b11011011, 0b11100111, 0b10000001, 0b01000010, 0b00111100]
+
+
+def patch_caught_ball(r):
+    """LoadHPBar: ld de,ExpBarGFX; ld hl,vTiles2 tile $55; lb bc,BANK,9; call Get2bpp — the 9th tile ($5D) is the caught ball"""
+    o = r.find("caught ball: LoadHPBar", "11 ?? ?? 21 50 95 01 09 ?? cd")
+    src = int.from_bytes(r.d[o + 1:o + 3], "little")
+    tile = r.d[o + 8] * 0x4000 + (src - 0x4000) + 8 * 16
+    old = bytes.fromhex("00007878dcdcfcfc8484848478780000")
+    r.put("caught ball: tile $5D", tile, old, b"".join(bytes([v, v]) for v in CAUGHT_BALL))
+
+
 def patch_trade_shiny(r):
     t = r.find("trades: table", "00 60 42 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 37 66")
     for k in range(6):
@@ -663,6 +680,7 @@ def main():
     patch_route29_starters(r)
     patch_route1_kanto_starters(r)
     patch_trade_shiny(r)
+    patch_caught_ball(r)
     patch_guide(r, wild_start, en_rom, en_sym, args.repo)
     fix_global_checksum(r.d)
     Path(args.out).write_bytes(bytes(r.d))
